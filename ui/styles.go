@@ -110,7 +110,7 @@ func buildStyles() style {
 		Gold:          lipgloss.NewStyle().Bold(true).Foreground(pal.Gold),
 		Silver:        lipgloss.NewStyle().Bold(true).Foreground(pal.Silver),
 		Bronze:        lipgloss.NewStyle().Bold(true).Foreground(pal.Bronze),
-		Perfect:       lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#000000")).Background(pal.PinkNeon),
+		Perfect:       lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ffffff")).Background(pal.PinkNeon),
 		Error:         lipgloss.NewStyle().Bold(true).Foreground(pal.Red),
 		Toast:         lipgloss.NewStyle().Bold(true).Foreground(pal.Green).Background(pal.BgFooter),
 		OverlayBorder: lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).BorderForeground(pal.PinkDim),
