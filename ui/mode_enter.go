@@ -52,7 +52,7 @@ func (m Model) startEnterScore() Model {
 }
 
 // handleEnterKey dispatches a key press while ModeEnterScore is active.
-func (m Model) handleEnterKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
+func (m Model) handleEnterKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 	if matches(km.Escape, k) {
 		return m.backOneStep(), nil
 	}
@@ -60,9 +60,9 @@ func (m Model) handleEnterKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
 	case enterStepRound:
 		return m.enterRoundKey(k, km), nil
 	case enterStepPick:
-		return m.enterPickKey(k, km)
+		return m.enterPickKey(k, text, km)
 	case enterStepScore:
-		return m.enterScoreKey(k, km)
+		return m.enterScoreKey(k, text, km)
 	}
 	return m, nil
 }
@@ -114,14 +114,14 @@ func (m Model) enterRoundKey(k string, km KeyMap) Model {
 	return m
 }
 
-func (m Model) enterPickKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
+func (m Model) enterPickKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 	candidates := m.pickCandidates()
 	switch {
-	case matches(km.Up, k):
+	case isArrowUp(k) || k == "ctrl+p":
 		if m.enter.pickIndex > 0 {
 			m.enter.pickIndex--
 		}
-	case matches(km.Down, k):
+	case isArrowDown(k) || k == "ctrl+n":
 		if m.enter.pickIndex < len(candidates)-1 {
 			m.enter.pickIndex++
 		}
@@ -146,15 +146,15 @@ func (m Model) enterPickKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
 			m.enter.pickIndex = 0
 		}
 	default:
-		if len(k) == 1 && k[0] >= ' ' {
-			m.enter.query += k
+		if text != "" {
+			m.enter.query += text
 			m.enter.pickIndex = 0
 		}
 	}
 	return m, nil
 }
 
-func (m Model) enterScoreKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
+func (m Model) enterScoreKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 	switch {
 	case matches(km.Clear, k):
 		m.enter.input = ""
@@ -193,8 +193,8 @@ func (m Model) enterScoreKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
 		m.enter.pickIndex = 0
 		return m, cmd
 	default:
-		if isScoreChar(k) {
-			m.enter.input += k
+		if isScoreChar(text) {
+			m.enter.input += text
 			m.errMsg = ""
 		}
 	}

@@ -39,7 +39,7 @@ func (m Model) startNewTeam() Model {
 }
 
 // handleNewTeamKey dispatches keys while ModeNewTeam is active.
-func (m Model) handleNewTeamKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
+func (m Model) handleNewTeamKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 	if matches(km.Escape, k) {
 		m.mode = ModeNormal
 		m.newTeam = newTeamState{}
@@ -47,22 +47,22 @@ func (m Model) handleNewTeamKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
 	}
 	switch m.newTeam.step {
 	case newTeamStepName:
-		return m.newTeamNameKey(k, km)
+		return m.newTeamNameKey(k, text, km)
 	case newTeamStepPlayers:
-		return m.newTeamPlayersKey(k, km)
+		return m.newTeamPlayersKey(k, text, km)
 	}
 	return m, nil
 }
 
-func (m Model) newTeamNameKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
+func (m Model) newTeamNameKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 	suggestions := m.newTeamSuggestions()
 	switch {
-	case matches(km.Up, k):
+	case isArrowUp(k):
 		if m.newTeam.suggestIdx > 0 {
 			m.newTeam.suggestIdx--
 		}
 		return m, nil
-	case matches(km.Down, k):
+	case isArrowDown(k):
 		if m.newTeam.suggestIdx < len(suggestions)-1 {
 			m.newTeam.suggestIdx++
 		}
@@ -76,8 +76,8 @@ func (m Model) newTeamNameKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
-	if len(k) == 1 && k[0] >= ' ' {
-		m.newTeam.name += k
+	if text != "" {
+		m.newTeam.name += text
 		m.newTeam.suggestIdx = 0
 	}
 	return m, nil
@@ -106,7 +106,7 @@ func (m Model) newTeamAcceptName(suggestions []history.Entry) Model {
 	return m
 }
 
-func (m Model) newTeamPlayersKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
+func (m Model) newTeamPlayersKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 	switch {
 	case matches(km.Enter, k):
 		// Commit via apply.
@@ -123,8 +123,8 @@ func (m Model) newTeamPlayersKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
 			m.newTeam.players = m.newTeam.players[:len(m.newTeam.players)-1]
 		}
 	default:
-		if len(k) == 1 && k[0] >= ' ' {
-			m.newTeam.players += k
+		if text != "" {
+			m.newTeam.players += text
 		}
 	}
 	return m, nil

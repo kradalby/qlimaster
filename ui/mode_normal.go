@@ -5,9 +5,15 @@ import (
 )
 
 // handleKey dispatches a key press to the appropriate mode handler.
+// k is the Bubble Tea string form of the key (used for binding matching
+// like "enter", "esc", "ctrl+c"). text is msg.Text, the raw character(s)
+// actually typed, used when populating text-input buffers. The space
+// key for example has k=="space" but text==" ", and we want the literal
+// space in buffers.
 func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	km := DefaultKeyMap()
 	k := msg.String()
+	text := msg.Text
 
 	// Global unconditional bindings.
 	if matches(km.ForceQuit, k) {
@@ -31,13 +37,13 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case ModeNormal:
 		return m.handleNormalKey(k, km)
 	case ModeEnterScore:
-		return m.handleEnterKey(k, km)
+		return m.handleEnterKey(k, text, km)
 	case ModeEditScore:
-		return m.handleEditKey(k, km)
+		return m.handleEditKey(k, text, km)
 	case ModeNewTeam:
-		return m.handleNewTeamKey(k, km)
+		return m.handleNewTeamKey(k, text, km)
 	case ModeConfig:
-		return m.handleConfigKey(k, km)
+		return m.handleConfigKey(k, text, km)
 	default:
 		if matches(km.Escape, k) {
 			m.mode = ModeNormal

@@ -35,9 +35,9 @@ func (m Model) startEditScore() Model {
 }
 
 // handleEditKey dispatches input in ModeEditScore.
-func (m Model) handleEditKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
+func (m Model) handleEditKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 	if m.edit.editing {
-		return m.editCellKey(k, km)
+		return m.editCellKey(k, text, km)
 	}
 	return m.editNavKey(k, km)
 }
@@ -170,7 +170,7 @@ func (m Model) focusedTeamID() string {
 }
 
 // editCellKey handles keys while actively editing a cell.
-func (m Model) editCellKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
+func (m Model) editCellKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 	switch {
 	case matches(km.Escape, k):
 		m.edit.editing = false
@@ -185,8 +185,8 @@ func (m Model) editCellKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
 	case matches(km.Enter, k):
 		return m.commitEdit()
 	default:
-		if len(k) == 1 && k[0] >= ' ' {
-			m.edit.input += k
+		if text != "" {
+			m.edit.input += text
 		}
 	}
 	return m, nil

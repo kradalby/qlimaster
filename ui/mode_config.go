@@ -42,7 +42,7 @@ func (m Model) startConfig() Model {
 }
 
 // handleConfigKey dispatches keys while ModeConfig is active.
-func (m Model) handleConfigKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
+func (m Model) handleConfigKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 	switch {
 	case matches(km.Escape, k):
 		m.mode = ModeNormal
@@ -60,8 +60,8 @@ func (m Model) handleConfigKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
 	case k == keyBackspace:
 		return m.configDelete(), nil
 	}
-	if isPrintable(k) {
-		return m.configAppend(k), nil
+	if text != "" {
+		return m.configAppend(text), nil
 	}
 	return m, nil
 }
@@ -172,17 +172,6 @@ func joinInts(xs []int) string {
 		parts[i] = strconv.Itoa(v)
 	}
 	return strings.Join(parts, ",")
-}
-
-// isPrintable reports whether a key press should be appended to a text
-// input. Multi-character key strings (like "up", "esc") are rejected; the
-// single printable ASCII range is accepted.
-func isPrintable(k string) bool {
-	if len(k) != 1 {
-		return false
-	}
-	c := k[0]
-	return c >= ' ' && c < 127
 }
 
 // renderConfig draws the Config overlay.
