@@ -77,9 +77,9 @@ func DefaultKeyMap() KeyMap {
 		First:  []string{"0"},
 		Last:   []string{"$"},
 
-		Enter:  []string{"enter"},
-		Escape: []string{"esc"},
-		Tab:    []string{"tab"},
+		Enter:  []string{"enter", "\n", "\r"},
+		Escape: []string{"esc", "escape"},
+		Tab:    []string{"tab", "\t"},
 		Back:   []string{"ctrl+r"},
 		Clear:  []string{"ctrl+u"},
 

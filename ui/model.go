@@ -71,6 +71,9 @@ type Model struct {
 	// rowCursor is the currently selected row in Normal and Edit modes.
 	rowCursor int
 
+	// enter is the ephemeral state for the EnterScore flow.
+	enter enterState
+
 	// Status/toast line shown in the footer. Cleared by a timer.
 	status       string
 	statusExpiry time.Time
@@ -229,6 +232,8 @@ func (m Model) render() string {
 		return overlayOnto(base, m.renderHelp(), m.width, m.height)
 	case ModeExport:
 		return overlayOnto(base, m.renderExport(), m.width, m.height)
+	case ModeEnterScore:
+		return overlayOnto(base, m.renderEnter(), m.width, m.height)
 	default:
 		return base
 	}
@@ -262,6 +267,8 @@ func (m Model) hints() []footerHint {
 		return []footerHint{{"c", "CSV"}, {"x", "XLSX"}, {"b", "both"}, {"Esc", "cancel"}}
 	case ModeHelp:
 		return []footerHint{{"?", "dismiss"}}
+	case ModeEnterScore:
+		return []footerHint{{"Enter", "next"}, {"Tab", "skip"}, {"Esc", "back"}}
 	default:
 		return []footerHint{{"Esc", "back"}}
 	}
