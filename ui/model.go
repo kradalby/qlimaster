@@ -31,6 +31,10 @@ const (
 	ModeExport
 	// ModeHelp overlays the keymap documentation.
 	ModeHelp
+	// ModeReadOut is the presentation mode: full-screen card-per-team
+	// walk-through from worst to best, for reading scores aloud at the
+	// end of a quiz.
+	ModeReadOut
 )
 
 // Label returns the bracketed badge string shown in the bottom bar.
@@ -50,6 +54,8 @@ func (m Mode) Label() string {
 		return "[EXPORT]"
 	case ModeHelp:
 		return "[HELP]"
+	case ModeReadOut:
+		return "[READ-OUT]"
 	default:
 		return "[?]"
 	}
@@ -85,6 +91,9 @@ type Model struct {
 
 	// configEdit is the ephemeral state for the Config mode.
 	configEdit configState
+
+	// readOut is the ephemeral state for the ReadOut mode.
+	readOut readOutState
 
 	// Status/toast line shown in the footer. Cleared by a timer.
 	status       string
@@ -256,6 +265,8 @@ func (m Model) render() string {
 		return overlayOnto(base, m.renderNewTeam(), m.width, m.height)
 	case ModeConfig:
 		return overlayOnto(base, m.renderConfig(), m.width, m.height)
+	case ModeReadOut:
+		return m.renderReadOut()
 	default:
 		return base
 	}
@@ -293,11 +304,14 @@ func (m Model) hints() []footerHint {
 			{"e", "enter"},
 			{"i", "edit"},
 			{"a", "add"},
+			{"R", "read-out"},
 			{"E", "export"},
 			{":", "config"},
 			{"?", "help"},
 			{"q", "quit"},
 		}
+	case ModeReadOut:
+		return []footerHint{{"Space/↓", "next"}, {"↑", "prev"}, {"Esc", "exit"}}
 	case ModeExport:
 		return []footerHint{{"c", "CSV"}, {"x", "XLSX"}, {"b", "both"}, {"Esc", "cancel"}}
 	case ModeHelp:

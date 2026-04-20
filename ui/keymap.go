@@ -22,6 +22,7 @@ type KeyMap struct {
 	AddTeam    []string
 	Config     []string
 	Export     []string
+	ReadOut    []string
 	ForceSort  []string
 	Refresh    []string
 
@@ -65,6 +66,7 @@ func DefaultKeyMap() KeyMap {
 		AddTeam:    []string{"a"},
 		Config:     []string{":"},
 		Export:     []string{"E"},
+		ReadOut:    []string{"R"},
 		ForceSort:  []string{"s"},
 		Refresh:    []string{"r"},
 

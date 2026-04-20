@@ -44,6 +44,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleNewTeamKey(k, text, km)
 	case ModeConfig:
 		return m.handleConfigKey(k, text, km)
+	case ModeReadOut:
+		return m.handleReadOutKey(k, km)
 	default:
 		if matches(km.Escape, k) {
 			m.mode = ModeNormal
@@ -68,6 +70,8 @@ func (m Model) handleNormalKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
 		return m.startNewTeam(), nil
 	case matches(km.Config, k):
 		return m.startConfig(), nil
+	case matches(km.ReadOut, k):
+		return m.startReadOut(), nil
 	case matches(km.Up, k):
 		if m.rowCursor > 0 {
 			m.rowCursor--
