@@ -37,7 +37,7 @@
           # vendorHash is the sha256 of the fetched Go module cache. Bump
           # this after changing go.sum (`nix build` will print the new
           # hash in the error output).
-          vendorHash = "sha256-BClHLKlC/fn3cwcD6MNtteDvmAOiWJ58gGrpqwdAtiM=";
+          vendorHash = "sha256-wOrV1/uPP3Nu3J5g7i+7D7oHNzNgPtP8aiZpPJDKjKs=";
           subPackages = [ "cmd/qlimaster" ];
           env.CGO_ENABLED = "0";
           ldflags = [ "-s" "-w" "-X main.version=${version}" ];
