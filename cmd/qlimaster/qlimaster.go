@@ -12,7 +12,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 
+	tea "charm.land/bubbletea/v2"
+	"github.com/kradalby/qlimaster/quiz"
+	"github.com/kradalby/qlimaster/ui"
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffhelp"
 )
@@ -45,17 +51,15 @@ func run(ctx context.Context, args []string) error {
 	return nil
 }
 
-// newRootCommand wires the command tree. Subcommands are stubs for now; the
-// root command is a placeholder that prints the version and exits until the
-// TUI is implemented.
+// newRootCommand wires the command tree.
 func newRootCommand() *ff.Command {
 	rootFS := ff.NewFlagSet("qlimaster")
 	var (
-		_ = rootFS.IntLong("rounds", 8, "number of rounds")
-		_ = rootFS.IntLong("questions", 10, "questions per round")
-		_ = rootFS.StringLong("checkpoints", "4,8",
+		rounds      = rootFS.IntLong("rounds", 8, "number of rounds")
+		questions   = rootFS.IntLong("questions", 10, "questions per round")
+		checkpoints = rootFS.StringLong("checkpoints", "4,8",
 			"comma-separated round numbers for cumulative-total columns")
-		_ = rootFS.StringLong("quiz-root", "",
+		quizRoot = rootFS.StringLong("quiz-root", "",
 			"root folder to scan for sibling quizzes (default: parent of CWD)")
 	)
 
@@ -65,15 +69,80 @@ func newRootCommand() *ff.Command {
 		ShortHelp: "pub-quiz score manager (TUI)",
 		Flags:     rootFS,
 		Exec: func(_ context.Context, _ []string) error {
-			fmt.Printf("qlimaster %s\n", version)
-			fmt.Println("TUI not yet implemented. Coming soon.")
-			return nil
+			return runTUI(runOpts{
+				rounds:      *rounds,
+				questions:   *questions,
+				checkpoints: *checkpoints,
+				quizRoot:    *quizRoot,
+			})
 		},
 		Subcommands: []*ff.Command{
 			newVersionCommand(),
 		},
 	}
 	return root
+}
+
+type runOpts struct {
+	rounds      int
+	questions   int
+	checkpoints string
+	quizRoot    string
+}
+
+func runTUI(opts runOpts) error {
+	cps, err := parseCheckpoints(opts.checkpoints)
+	if err != nil {
+		return err
+	}
+	cfg := quiz.Config{
+		Rounds:            opts.rounds,
+		QuestionsPerRound: opts.questions,
+		Checkpoints:       cps,
+	}
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("invalid quiz config: %w", err)
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getwd: %w", err)
+	}
+	path := filepath.Join(cwd, "quiz.hujson")
+
+	model, err := ui.New(ui.Config{
+		Path:       path,
+		QuizRoot:   opts.quizRoot,
+		QuizConfig: cfg,
+	})
+	if err != nil {
+		return fmt.Errorf("init ui: %w", err)
+	}
+
+	program := tea.NewProgram(model)
+	if _, err := program.Run(); err != nil {
+		return fmt.Errorf("run program: %w", err)
+	}
+	return nil
+}
+
+func parseCheckpoints(s string) ([]int, error) {
+	if strings.TrimSpace(s) == "" {
+		return nil, nil
+	}
+	parts := strings.Split(s, ",")
+	out := make([]int, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		v, err := strconv.Atoi(p)
+		if err != nil {
+			return nil, fmt.Errorf("checkpoint %q: %w", p, err)
+		}
+		out = append(out, v)
+	}
+	return out, nil
 }
 
 func newVersionCommand() *ff.Command {
