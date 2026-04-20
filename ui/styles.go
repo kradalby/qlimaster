@@ -105,7 +105,7 @@ func buildStyles() style {
 		RowZebra:      lipgloss.NewStyle().Background(pal.BgZebra).Foreground(pal.FgBody),
 		CellFocus:     lipgloss.NewStyle().Bold(true).Background(pal.Yellow).Foreground(lipgloss.Color("#000000")),
 		CellEditing:   lipgloss.NewStyle().Bold(true).Background(pal.PinkHot).Foreground(lipgloss.Color("#000000")),
-		Averages:      lipgloss.NewStyle().Italic(true).Bold(true).Foreground(pal.FgBody).Background(pal.BgAvg),
+		Averages:      lipgloss.NewStyle().Bold(true).Foreground(pal.PinkHot).Background(pal.BgAvg),
 		AveragesBand:  lipgloss.NewStyle().Background(pal.BgAvg).Foreground(pal.FgBody),
 		Gold:          lipgloss.NewStyle().Bold(true).Foreground(pal.Gold),
 		Silver:        lipgloss.NewStyle().Bold(true).Foreground(pal.Silver),

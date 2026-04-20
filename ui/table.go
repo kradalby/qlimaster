@@ -115,7 +115,7 @@ func (m Model) renderBodyRows(l Layout) string {
 
 func (m Model) renderAveragesRow(l Layout) string {
 	parts := []string{
-		padCell("avg", l.PosWidth, alignRight),
+		padCell("AVG", l.PosWidth, alignRight),
 		padCell("", l.TeamWidth, alignLeft),
 	}
 	if l.ShowPlayers {
@@ -132,12 +132,13 @@ func (m Model) renderAveragesRow(l Layout) string {
 	tavg, tok := quiz.TotalAverage(m.quiz)
 	parts = append(parts, padCell(formatAvg(tavg, tok), l.TotalWidth, alignRight))
 
-	line := strings.Join(parts, " │ ")
-	line = " " + line
+	inner := strings.Join(parts, " │ ")
+	inner = " " + inner
 	if l.RightPad > 0 {
-		line += strings.Repeat(" ", l.RightPad)
+		inner += strings.Repeat(" ", l.RightPad)
 	}
-	return padLine(styles.Averages.Render(line), l.Width)
+	padded := padLine(inner, l.Width)
+	return styles.Averages.Render(padded)
 }
 
 func (m Model) renderDataRow(l Layout, t quiz.Team, position int, focused bool, visibleIdx int, focusCell Cell) string {
