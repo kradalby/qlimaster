@@ -123,11 +123,16 @@ type Model struct {
 type Config struct {
 	// Path is the location of quiz.hujson. Required.
 	Path string
-	// HistoryPath is the location of the team history file. Defaults to
-	// the XDG path when empty.
+	// HistoryPath is the explicit location of the team history file.
+	// When empty, the path is resolved via history.ResolvePath, which
+	// walks upwards from QuizRoot looking for the nearest ancestor
+	// that looks like a quiz-root (holds a history.hujson or has a
+	// YYYY-MM-DD* subfolder), falling back to the XDG config path if
+	// nothing qualifies.
 	HistoryPath string
-	// QuizRoot is the folder scanned for sibling quizzes to build the
-	// fuzzy-name history. Defaults to filepath.Dir(Config.Path).
+	// QuizRoot is the starting directory used for the upward quiz-root
+	// search and for live sibling-folder scans. Defaults to
+	// filepath.Dir(Config.Path).
 	QuizRoot string
 	// QuizConfig is the quiz structure to create when Path does not yet
 	// exist. Ignored when Path exists and is parseable.
@@ -154,7 +159,11 @@ func New(cfg Config) (Model, error) {
 
 	historyPath := cfg.HistoryPath
 	if historyPath == "" {
-		historyPath = history.DefaultPath(cfg.QuizRoot)
+		hp, err := history.ResolvePath(cfg.QuizRoot)
+		if err != nil {
+			return Model{}, fmt.Errorf("resolve history path: %w", err)
+		}
+		historyPath = hp
 	}
 	hist, err := loadHistory(historyPath, cfg.QuizRoot)
 	if err != nil {
@@ -201,10 +210,15 @@ func loadOrCreate(path string, cfg quiz.Config) (quiz.Quiz, error) {
 }
 
 // loadHistory combines the persisted history file with a live scan of
-// sibling quiz folders under quizRoot.
+// sibling quiz folders under quizRoot. An empty historyPath is
+// resolved via history.ResolvePath.
 func loadHistory(historyPath, quizRoot string) (history.History, error) {
 	if historyPath == "" {
-		historyPath = history.DefaultPath(quizRoot)
+		hp, err := history.ResolvePath(quizRoot)
+		if err != nil {
+			return history.History{}, fmt.Errorf("resolve history path: %w", err)
+		}
+		historyPath = hp
 	}
 	persisted, err := history.Load(historyPath)
 	if err != nil {

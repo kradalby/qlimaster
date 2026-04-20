@@ -181,13 +181,24 @@ func newHistoryRebuildCommand() *ff.Command {
 			}
 			scanRoot := *root
 			if scanRoot == "" {
-				scanRoot = filepath.Dir(cwd)
+				// Walk upwards from CWD looking for an ancestor that
+				// looks like a quiz-root (has a history.hujson or a
+				// dated subfolder). Fall back to the parent of CWD
+				// when nothing qualifies.
+				if found, ok := history.FindQuizRoot(cwd); ok {
+					scanRoot = found
+				} else {
+					scanRoot = filepath.Dir(cwd)
+				}
 			}
 			scanned, err := history.Scan(scanRoot)
 			if err != nil {
 				return fmt.Errorf("scan %s: %w", scanRoot, err)
 			}
-			path := history.DefaultPath(scanRoot)
+			path, err := history.ResolvePath(scanRoot)
+			if err != nil {
+				return fmt.Errorf("resolve history path: %w", err)
+			}
 			if err := history.Save(path, scanned); err != nil {
 				return fmt.Errorf("save history: %w", err)
 			}
