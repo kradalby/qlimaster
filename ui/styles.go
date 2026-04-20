@@ -22,6 +22,8 @@ type palette struct {
 	BgHeader lipgloss.AdaptiveColor
 	BgFooter lipgloss.AdaptiveColor
 	BgSelect lipgloss.AdaptiveColor
+	BgZebra  lipgloss.AdaptiveColor
+	BgAvg    lipgloss.AdaptiveColor
 }
 
 // pal is the shared palette instance.
@@ -42,6 +44,8 @@ var pal = palette{
 	BgHeader: lipgloss.AdaptiveColor{Light: "#ffe6f0", Dark: "#2a0a1e"},
 	BgFooter: lipgloss.AdaptiveColor{Light: "#ffd1e6", Dark: "#1a0612"},
 	BgSelect: lipgloss.AdaptiveColor{Light: "#ffb4d6", Dark: "#5a1a3c"},
+	BgZebra:  lipgloss.AdaptiveColor{Light: "#fff5f9", Dark: "#1a0a14"},
+	BgAvg:    lipgloss.AdaptiveColor{Light: "#ffe6f0", Dark: "#3a0a24"},
 }
 
 // style bundles the lipgloss styles derived from the palette. Precomputed
@@ -58,7 +62,11 @@ type style struct {
 	TableHeader   lipgloss.Style
 	Separator     lipgloss.Style
 	RowFocus      lipgloss.Style
+	RowZebra      lipgloss.Style
+	CellFocus     lipgloss.Style
+	CellEditing   lipgloss.Style
 	Averages      lipgloss.Style
+	AveragesBand  lipgloss.Style
 	Gold          lipgloss.Style
 	Silver        lipgloss.Style
 	Bronze        lipgloss.Style
@@ -90,7 +98,11 @@ func buildStyles() style {
 		TableHeader:   lipgloss.NewStyle().Bold(true).Underline(true).Foreground(pal.PinkSoft),
 		Separator:     lipgloss.NewStyle().Foreground(pal.PinkDim),
 		RowFocus:      lipgloss.NewStyle().Background(pal.BgSelect).Foreground(pal.FgBody),
-		Averages:      lipgloss.NewStyle().Italic(true).Foreground(pal.FgMuted),
+		RowZebra:      lipgloss.NewStyle().Background(pal.BgZebra).Foreground(pal.FgBody),
+		CellFocus:     lipgloss.NewStyle().Bold(true).Background(pal.Yellow).Foreground(lipgloss.Color("#000000")),
+		CellEditing:   lipgloss.NewStyle().Bold(true).Background(pal.PinkHot).Foreground(lipgloss.Color("#000000")),
+		Averages:      lipgloss.NewStyle().Italic(true).Bold(true).Foreground(pal.FgBody).Background(pal.BgAvg),
+		AveragesBand:  lipgloss.NewStyle().Background(pal.BgAvg).Foreground(pal.FgBody),
 		Gold:          lipgloss.NewStyle().Bold(true).Foreground(pal.Gold),
 		Silver:        lipgloss.NewStyle().Bold(true).Foreground(pal.Silver),
 		Bronze:        lipgloss.NewStyle().Bold(true).Foreground(pal.Bronze),

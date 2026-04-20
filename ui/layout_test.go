@@ -80,12 +80,22 @@ func TestCompute_TableHeight(t *testing.T) {
 
 	cfg := quiz.DefaultConfig()
 	l := ui.Compute(150, 30, cfg, 0)
-	// height - topBar(1) - bottomBar(2) - chrome(4)
-	assert.Equal(t, 30-1-2-4, l.TableHeight)
+	// height - topBanner(3) - bottomBanner(3) - tableChrome(4)
+	assert.Equal(t, 30-3-3-4, l.TableHeight)
 
 	// Very short viewport clamps to zero.
 	l = ui.Compute(150, 5, cfg, 0)
 	assert.Equal(t, 0, l.TableHeight)
+}
+
+func TestCompute_TeamWidthCapped(t *testing.T) {
+	t.Parallel()
+
+	cfg := quiz.DefaultConfig()
+	// On a very wide terminal, surplus must go to RightPad, not TeamWidth.
+	l := ui.Compute(300, 40, cfg, 0)
+	assert.LessOrEqual(t, l.TeamWidth, 28)
+	assert.Positive(t, l.RightPad)
 }
 
 func TestCompute_TeamWidthNonNegative(t *testing.T) {

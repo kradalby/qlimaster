@@ -10,39 +10,73 @@ import (
 	"github.com/kradalby/qlimaster/score"
 )
 
-// renderTable renders the full data table (header, separators, rows,
-// averages) using the precomputed layout.
+// renderTable renders the full data table (header, rows, averages) using
+// the precomputed layout. The outer frame is drawn by the caller; this
+// function emits rows that already fit within Layout.Width.
 func (m Model) renderTable(l Layout) string {
 	header := m.renderHeaderRow(l)
-	sepTop := m.renderSeparator(l)
 	body := m.renderBodyRows(l)
-	sepBot := m.renderSeparator(l)
 	avg := m.renderAveragesRow(l)
-	return lipgloss.JoinVertical(lipgloss.Left, header, sepTop, body, sepBot, avg)
+	rule := m.renderThickRule(l)
+	return lipgloss.JoinVertical(lipgloss.Left, header, rule, body, rule, avg)
 }
+
+// labelPosition, labelTeam ... return the header label text for the
+// current breakpoint.
+func (l Layout) labelPosition() string {
+	if l.UseLongLabels {
+		return "Position"
+	}
+	return "Pos"
+}
+
+func (l Layout) labelTeam() string { return "Team" }
+
+func (l Layout) labelPlayers() string { return "Players" }
+
+func (l Layout) labelRound(r int) string {
+	if l.UseLongLabels {
+		return "Round " + strconv.Itoa(r)
+	}
+	return "R" + strconv.Itoa(r)
+}
+
+func (l Layout) labelCheckpoint(r int) string {
+	if l.UseLongLabels {
+		return "Half R" + strconv.Itoa(r)
+	}
+	return "H" + strconv.Itoa(r)
+}
+
+func (l Layout) labelTotal() string { return "Total" }
 
 func (m Model) renderHeaderRow(l Layout) string {
 	parts := []string{
-		padCell("Pos", l.PosWidth, alignRight),
-		padCell("Team", l.TeamWidth, alignLeft),
+		padCell(l.labelPosition(), l.PosWidth, alignRight),
+		padCell(l.labelTeam(), l.TeamWidth, alignLeft),
 	}
 	if l.ShowPlayers {
-		parts = append(parts, padCell("Players", l.PlayersWidth, alignLeft))
+		parts = append(parts, padCell(l.labelPlayers(), l.PlayersWidth, alignLeft))
 	}
 	for _, r := range l.VisibleRounds {
-		parts = append(parts, padCell("R"+strconv.Itoa(r), l.RoundWidth, alignRight))
+		parts = append(parts, padCell(l.labelRound(r), l.RoundWidth, alignRight))
 		if slices.Contains(l.VisibleCheckpts, r) {
-			parts = append(parts, padCell("H"+strconv.Itoa(r), l.CheckptWidth, alignRight))
+			parts = append(parts, padCell(l.labelCheckpoint(r), l.CheckptWidth, alignRight))
 		}
 	}
-	parts = append(parts, padCell("Total", l.TotalWidth, alignRight))
+	parts = append(parts, padCell(l.labelTotal(), l.TotalWidth, alignRight))
 
-	line := strings.Join(parts, " | ")
+	line := strings.Join(parts, " │ ")
+	line = " " + line
+	if l.RightPad > 0 {
+		line += strings.Repeat(" ", l.RightPad)
+	}
 	return padLine(styles.TableHeader.Render(line), l.Width)
 }
 
-func (m Model) renderSeparator(l Layout) string {
-	return padLine(styles.Separator.Render(strings.Repeat("-", l.Width)), l.Width)
+// renderThickRule draws a full-width thin rule between sections.
+func (m Model) renderThickRule(l Layout) string {
+	return padLine(styles.Separator.Render(strings.Repeat("─", l.Width)), l.Width)
 }
 
 func (m Model) renderBodyRows(l Layout) string {
@@ -53,14 +87,12 @@ func (m Model) renderBodyRows(l Layout) string {
 		return padLine("", l.Width) // keep vertical space consistent
 	}
 
-	// Viewport clamp: if there are more rows than TableHeight, scroll to
-	// keep the row cursor visible.
 	start, end := windowRange(l.TableHeight, len(sorted), m.rowCursor)
-	var lines []string
+	lines := make([]string, 0, end-start)
 	for i := start; i < end; i++ {
-		lines = append(lines, m.renderDataRow(l, sorted[i], ranking.PositionOf(sorted[i].ID), i == m.rowCursor))
+		lines = append(lines,
+			m.renderDataRow(l, sorted[i], ranking.PositionOf(sorted[i].ID), i == m.rowCursor, i-start))
 	}
-	// Pad to TableHeight lines so the table occupies its allotted area.
 	for len(lines) < l.TableHeight {
 		lines = append(lines, padLine("", l.Width))
 	}
@@ -86,12 +118,20 @@ func (m Model) renderAveragesRow(l Layout) string {
 	tavg, tok := quiz.TotalAverage(m.quiz)
 	parts = append(parts, padCell(formatAvg(tavg, tok), l.TotalWidth, alignRight))
 
-	line := strings.Join(parts, " | ")
+	line := strings.Join(parts, " │ ")
+	line = " " + line
+	if l.RightPad > 0 {
+		line += strings.Repeat(" ", l.RightPad)
+	}
 	return padLine(styles.Averages.Render(line), l.Width)
 }
 
-func (m Model) renderDataRow(l Layout, t quiz.Team, position int, focused bool) string {
-	posCell := padCell(strconv.Itoa(position), l.PosWidth, alignRight)
+func (m Model) renderDataRow(l Layout, t quiz.Team, position int, focused bool, visibleIdx int) string {
+	posText := strconv.Itoa(position)
+	if position == 1 && quiz.RoundComplete(m.quiz, m.quiz.Config.Rounds) {
+		posText = "★ " + posText
+	}
+	posCell := padCell(posText, l.PosWidth, alignRight)
 	posCell = positionStyle(position).Render(posCell)
 
 	teamName := truncate(t.Name, l.TeamWidth)
@@ -107,11 +147,7 @@ func (m Model) renderDataRow(l Layout, t quiz.Team, position int, focused bool) 
 		v, ok := t.Score(r)
 		cell := ""
 		if ok {
-			s := score.Format(v)
-			if v >= threshold {
-				s += "*"
-			}
-			cell = s
+			cell = score.Format(v)
 		}
 		cellStr := padCell(cell, l.RoundWidth, alignRight)
 		if ok && v >= threshold {
@@ -124,11 +160,18 @@ func (m Model) renderDataRow(l Layout, t quiz.Team, position int, focused bool) 
 	}
 	parts = append(parts, padCell(score.Format(t.Total()), l.TotalWidth, alignRight))
 
-	line := strings.Join(parts, " | ")
+	line := strings.Join(parts, " │ ")
+	line = " " + line
+	if l.RightPad > 0 {
+		line += strings.Repeat(" ", l.RightPad)
+	}
+	// Zebra stripe: alternate rows get a subtle dim background.
+	line = padLine(line, l.Width)
 	if focused {
-		line = styles.RowFocus.Render(padLine(line, l.Width))
-	} else {
-		line = padLine(line, l.Width)
+		return styles.RowFocus.Render(line)
+	}
+	if visibleIdx%2 == 1 {
+		return styles.RowZebra.Render(line)
 	}
 	return line
 }
@@ -193,8 +236,8 @@ func padCell(s string, width, align int) string {
 	return s + pad
 }
 
-// truncate returns s clipped to at most `width` visible columns, with a
-// trailing '~' to indicate truncation when clipping occurs.
+// truncate returns s clipped to at most width visible columns, with a
+// trailing ellipsis when clipping occurs.
 func truncate(s string, width int) string {
 	if width <= 0 {
 		return ""
@@ -203,13 +246,11 @@ func truncate(s string, width int) string {
 		return s
 	}
 	if width == 1 {
-		return "~"
+		return "…"
 	}
-	// Approximate: drop runes from the end until it fits, then replace the
-	// last character with '~'.
 	runes := []rune(s)
-	for len(runes) > 0 && lipgloss.Width(string(runes)) > width-1 {
+	for len(runes) > 0 && lipgloss.Width(string(runes))+1 > width {
 		runes = runes[:len(runes)-1]
 	}
-	return string(runes) + "~"
+	return string(runes) + "…"
 }

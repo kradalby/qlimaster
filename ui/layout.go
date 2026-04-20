@@ -46,17 +46,48 @@ type Layout struct {
 
 	Breakpoint Breakpoint
 
+	// UseLongLabels is true at the Full breakpoint where header labels
+	// spell out "Position", "Round 1", "Halftime R4" instead of
+	// abbreviating.
+	UseLongLabels bool
+
 	ShowPlayers     bool
 	VisibleRounds   []int // round numbers, in left-to-right order
 	VisibleCheckpts []int // checkpoint round numbers kept
 
-	// Column widths.
+	// Column widths. These are the visible character widths of each cell
+	// between separators.
 	PosWidth     int
 	TeamWidth    int
 	PlayersWidth int
 	RoundWidth   int
 	CheckptWidth int
 	TotalWidth   int
+
+	// RightPad is a trailing blank column at the right edge of the
+	// table. Computed to absorb surplus horizontal space when the team
+	// column has reached its cap, so no single column blooms to fill the
+	// whole viewport.
+	RightPad int
+}
+
+// teamWidthCap returns the maximum width given to the Team column for a
+// given breakpoint. Past this cap, surplus width becomes trailing
+// padding. Team names longer than the cap are truncated with an ellipsis
+// on render.
+func teamWidthCap(bp Breakpoint) int {
+	switch bp {
+	case BreakpointFull:
+		return 28
+	case BreakpointNoPlayers:
+		return 24
+	case BreakpointMinimalCheckpoints:
+		return 20
+	case BreakpointCompact:
+		return 16
+	default:
+		return 20
+	}
 }
 
 // Compute chooses a responsive layout for the given viewport size and
@@ -65,23 +96,23 @@ type Layout struct {
 // round has been entered yet.
 func Compute(width, height int, cfg quiz.Config, lastEnteredRound int) Layout {
 	const (
-		topBarLines    = 1
-		bottomBarLines = 2
-		// Separator lines above and below data rows inside the table area.
-		tableChrome = 4
+		topBarLines    = 3 // thick banner
+		bottomBarLines = 3 // thick banner
+		tableChrome    = 4 // table top rule, header row, rule above avg, avg row
 	)
 
 	layout := Layout{
 		Width:        width,
 		Height:       height,
 		TableHeight:  max(height-topBarLines-bottomBarLines-tableChrome, 0),
-		PosWidth:     4,
+		PosWidth:     10,
 		TotalWidth:   7,
-		RoundWidth:   4,
-		CheckptWidth: 4,
-		PlayersWidth: 12,
+		RoundWidth:   7,
+		CheckptWidth: 8,
+		PlayersWidth: 14,
 	}
 	layout.Breakpoint = classify(width)
+	layout.UseLongLabels = layout.Breakpoint == BreakpointFull
 
 	switch layout.Breakpoint {
 	case BreakpointFull:
@@ -93,19 +124,29 @@ func Compute(width, height int, cfg quiz.Config, lastEnteredRound int) Layout {
 		layout.PlayersWidth = 0
 		layout.VisibleRounds = allRounds(cfg.Rounds)
 		layout.VisibleCheckpts = append([]int(nil), cfg.Checkpoints...)
+		layout.PosWidth = 5
+		layout.RoundWidth = 5
+		layout.CheckptWidth = 5
 	case BreakpointMinimalCheckpoints:
 		layout.ShowPlayers = false
 		layout.PlayersWidth = 0
 		layout.VisibleRounds = allRounds(cfg.Rounds)
 		layout.VisibleCheckpts = minimalCheckpoints(cfg.Checkpoints, lastEnteredRound)
+		layout.PosWidth = 4
+		layout.RoundWidth = 4
+		layout.CheckptWidth = 5
+		layout.TotalWidth = 6
 	case BreakpointCompact:
 		layout.ShowPlayers = false
 		layout.PlayersWidth = 0
 		layout.VisibleRounds = compactRound(cfg.Rounds, lastEnteredRound)
 		layout.VisibleCheckpts = nil
+		layout.PosWidth = 4
+		layout.RoundWidth = 5
+		layout.TotalWidth = 6
 	}
 
-	layout.TeamWidth = computeTeamWidth(layout)
+	layout.TeamWidth, layout.RightPad = computeTeamAndPad(layout)
 	return layout
 }
 
@@ -154,16 +195,30 @@ func compactRound(rounds, lastEntered int) []int {
 	return []int{r}
 }
 
-// computeTeamWidth fills the remaining horizontal space with the team
-// column. It assumes a 3-char padding per column separator (" | "), which
-// matches the table renderer's joiner.
-func computeTeamWidth(l Layout) int {
-	const sep = 3 // " | "
-	used := l.PosWidth + sep + sep + l.TotalWidth
+// computeTeamAndPad returns the Team column width and any trailing
+// right-pad. Team width is bounded by teamWidthCap; surplus becomes
+// right padding so a wide terminal does not leave the Team column
+// bloomed.
+func computeTeamAndPad(l Layout) (int, int) {
+	const frame = 1 // left + right border columns contribute 2 total
+	// Separator between cells. The renderer joins with " │ " (3 cols).
+	const sep = 3
+
+	// Fixed columns always present: Pos, Team, Total (Team width TBD).
+	used := frame*2 + l.PosWidth + sep + sep + l.TotalWidth
 	if l.ShowPlayers {
 		used += l.PlayersWidth + sep
 	}
 	used += (l.RoundWidth + sep) * len(l.VisibleRounds)
 	used += (l.CheckptWidth + sep) * len(l.VisibleCheckpts)
-	return max(l.Width-used, 8)
+
+	remaining := l.Width - used
+	if remaining < 10 {
+		return max(remaining, 8), 0
+	}
+	maxTeam := teamWidthCap(l.Breakpoint)
+	if remaining <= maxTeam {
+		return remaining, 0
+	}
+	return maxTeam, remaining - maxTeam
 }

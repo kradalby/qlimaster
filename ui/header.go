@@ -9,44 +9,37 @@ import (
 	"github.com/kradalby/qlimaster/quiz"
 )
 
-// renderHeader returns the single-line top bar shaped like
+// renderHeader returns the three-line top banner:
 //
-//	qlimaster                N teams | RRxQQ | Hc1,c2          Day YYYY-MM-DD
+//	line 1: solid pink band with the app title centered
+//	line 2: stats band with teams/config/date
+//	line 3: thin rule
 //
-// left-aligned app name, centered stats, right-aligned date. The whole bar
-// is painted on the header background.
+// All three lines are exactly width columns wide.
 func renderHeader(width int, cfg quiz.Config, teamCount int, dateLabel string) string {
 	if width <= 0 {
 		return ""
 	}
-	app := styles.AppName.Render(" qlimaster ")
-	stats := styles.Stats.Render(headerStats(cfg, teamCount))
-	date := styles.DateRight.Render(dateLabel + " ")
+	title := styles.AppName.Render(" qlimaster · pub quiz score manager ")
+	line1 := styles.TopBarBase.Render(centerInWidth(title, width, pal.BgHeader))
 
-	// Use lipgloss.Place to horizontally assemble the three regions.
-	appW := lipgloss.Width(app)
-	dateW := lipgloss.Width(date)
-	middleW := max(width-appW-dateW, 1)
-	mid := lipgloss.NewStyle().
-		Background(pal.BgHeader).
-		Width(middleW).
-		Align(lipgloss.Center).
-		Render(stats)
-	line := lipgloss.JoinHorizontal(lipgloss.Top, app, mid, date)
-	// Ensure full width even when lipgloss rounding is involved.
-	if lipgloss.Width(line) < width {
-		line += strings.Repeat(" ", width-lipgloss.Width(line))
-	}
-	return styles.TopBarBase.Render(line)
+	statsLeft := styles.Stats.Render("  " + strconv.Itoa(teamCount) + " teams")
+	statsMid := styles.Stats.Render(middleStats(cfg))
+	statsRight := styles.DateRight.Render(dateLabel + "  ")
+	line2 := threeRegionLine(statsLeft, statsMid, statsRight, width, pal.BgHeader)
+
+	line3 := styles.Separator.Render(strings.Repeat("─", width))
+	return lipgloss.JoinVertical(lipgloss.Left, line1, line2, line3)
 }
 
-// headerStats formats the middle section of the header bar.
-func headerStats(cfg quiz.Config, teamCount int) string {
+// middleStats formats the centre region of the stats banner.
+func middleStats(cfg quiz.Config) string {
 	cp := formatCheckpoints(cfg.Checkpoints)
-	if cp == "" {
-		return fmt.Sprintf("%d teams | %dR x %dQ", teamCount, cfg.Rounds, cfg.QuestionsPerRound)
+	main := fmt.Sprintf("%d rounds · %d questions", cfg.Rounds, cfg.QuestionsPerRound)
+	if cp != "" {
+		return main + " · " + cp
 	}
-	return fmt.Sprintf("%d teams | %dR x %dQ | %s", teamCount, cfg.Rounds, cfg.QuestionsPerRound, cp)
+	return main
 }
 
 func formatCheckpoints(cps []int) string {
@@ -55,7 +48,34 @@ func formatCheckpoints(cps []int) string {
 	}
 	parts := make([]string, len(cps))
 	for i, c := range cps {
-		parts[i] = strconv.Itoa(c)
+		parts[i] = "R" + strconv.Itoa(c)
 	}
-	return "H" + strings.Join(parts, ",")
+	return "halftimes at " + strings.Join(parts, ", ")
+}
+
+// centerInWidth centers s in width columns, filling the surrounding space
+// with the supplied adaptive colour.
+func centerInWidth(s string, width int, bg lipgloss.AdaptiveColor) string {
+	w := lipgloss.Width(s)
+	if w >= width {
+		return s
+	}
+	leftN := (width - w) / 2
+	rightN := width - w - leftN
+	pad := lipgloss.NewStyle().Background(bg)
+	return pad.Render(strings.Repeat(" ", leftN)) + s + pad.Render(strings.Repeat(" ", rightN))
+}
+
+// threeRegionLine composes a left/middle/right line of exactly width
+// columns, right-padding the middle region with the background colour.
+func threeRegionLine(left, middle, right string, width int, bg lipgloss.AdaptiveColor) string {
+	lw := lipgloss.Width(left)
+	rw := lipgloss.Width(right)
+	mw := max(width-lw-rw, 1)
+	mid := lipgloss.NewStyle().Background(bg).Width(mw).Align(lipgloss.Center).Render(middle)
+	line := lipgloss.JoinHorizontal(lipgloss.Top, left, mid, right)
+	if w := lipgloss.Width(line); w < width {
+		line += lipgloss.NewStyle().Background(bg).Render(strings.Repeat(" ", width-w))
+	}
+	return line
 }
