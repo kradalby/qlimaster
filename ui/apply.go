@@ -25,11 +25,21 @@ func (m Model) apply(c quiz.Change) (Model, tea.Cmd) {
 	if res.Mutated {
 		cmds = append(cmds, clearStatusCmd(1200*time.Millisecond))
 	}
-	// Sort animation, perfect flash and winner glow are placeholders for
-	// now: effects will be added in the next phase where they have visible
-	// output. The data they need is already in `res`.
+	for _, p := range res.NewPerfectRounds {
+		cmds = append(cmds, flashPerfect(p))
+	}
+	if res.WinnerDecided {
+		winnerID := ""
+		for _, t := range newQuiz.Teams {
+			if quiz.Rank(newQuiz).PositionOf(t.ID) == 1 {
+				winnerID = t.ID
+				break
+			}
+		}
+		if winnerID != "" {
+			cmds = append(cmds, winnerGlow(winnerID))
+		}
+	}
 	_ = res.ReRanked
-	_ = res.NewPerfectRounds
-	_ = res.WinnerDecided
 	return m, tea.Batch(cmds...)
 }

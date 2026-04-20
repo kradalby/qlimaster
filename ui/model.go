@@ -80,6 +80,12 @@ type Model struct {
 	// edit is the ephemeral state for the EditScore flow.
 	edit editState
 
+	// newTeam is the ephemeral state for the NewTeam flow.
+	newTeam newTeamState
+
+	// configEdit is the ephemeral state for the Config mode.
+	configEdit configState
+
 	// Status/toast line shown in the footer. Cleared by a timer.
 	status       string
 	statusExpiry time.Time
@@ -214,6 +220,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = ""
 		}
 		return m, nil
+	case perfectFlashTickMsg:
+		m2, cmd := m.onPerfectTick(msg)
+		return m2, cmd
+	case winnerGlowTickMsg:
+		m2, cmd := m.onWinnerTick(msg)
+		return m2, cmd
 	}
 	return m, nil
 }
@@ -240,6 +252,10 @@ func (m Model) render() string {
 		return overlayOnto(base, m.renderExport(), m.width, m.height)
 	case ModeEnterScore:
 		return overlayOnto(base, m.renderEnter(), m.width, m.height)
+	case ModeNewTeam:
+		return overlayOnto(base, m.renderNewTeam(), m.width, m.height)
+	case ModeConfig:
+		return overlayOnto(base, m.renderConfig(), m.width, m.height)
 	default:
 		return base
 	}
@@ -299,6 +315,10 @@ func (m Model) hints() []footerHint {
 			{"dd", "delete"},
 			{"Esc", "normal"},
 		}
+	case ModeNewTeam:
+		return []footerHint{{"Enter", "accept"}, {"Up/Down", "select"}, {"Esc", "cancel"}}
+	case ModeConfig:
+		return []footerHint{{"Tab", "next"}, {"Enter", "save"}, {"Esc", "cancel"}}
 	default:
 		return []footerHint{{"Esc", "back"}}
 	}
