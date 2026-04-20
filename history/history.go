@@ -4,10 +4,14 @@
 //
 // Two sources are combined:
 //
-//  1. A persistent file at <quiz-root>/history.hujson that records the
-//     last date each name was used and how many times. The quiz-root
-//     is the folder that holds the per-date quiz subfolders, so the
-//     history lives next to them and moves with the user's sync setup.
+//  1. A persistent file whose location is resolved by [ResolvePath]:
+//     when the current quiz-root already holds an obvious quiz setup
+//     (either an existing history.hujson or at least one dated
+//     YYYY-MM-DD subdirectory) the file lives at
+//     <quiz-root>/history.hujson so it travels with the user's sync
+//     setup. Otherwise it falls back to
+//     $XDG_CONFIG_HOME/qlimaster/history.hujson so ad-hoc runs
+//     (e.g. from a scratch directory) don't scatter state.
 //  2. A live scan of sibling quiz folders under the same root, which
 //     is resilient to a missing or stale history file.
 //
@@ -21,10 +25,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/adrg/xdg"
 	"github.com/kradalby/qlimaster/quiz"
 	"github.com/tailscale/hujson"
 )
@@ -42,17 +48,91 @@ type History struct {
 	Teams   []Entry `json:"teams"   hujson:"teams"`
 }
 
-// DefaultPath returns the canonical history-file path for a given
-// quiz-root directory (the folder that contains the per-date quiz
-// subfolders). The file lives at <quizRoot>/history.hujson so it sits
-// next to the individual quizzes and travels with the user's sync
-// setup.
-//
-// An empty quizRoot is a programmer error; the caller must resolve
-// the quiz root first (typically the parent of the current working
-// directory).
-func DefaultPath(quizRoot string) string {
+// inQuizRootPath returns the history-file path inside a quiz-root
+// directory.
+func inQuizRootPath(quizRoot string) string {
 	return filepath.Join(quizRoot, "history.hujson")
+}
+
+// xdgPath returns the XDG-compliant fallback path for the history file.
+func xdgPath() (string, error) {
+	p, err := xdg.ConfigFile("qlimaster/history.hujson")
+	if err != nil {
+		return "", fmt.Errorf("xdg config: %w", err)
+	}
+	return p, nil
+}
+
+// datedFolderPattern matches directory names that look like dated quiz
+// folders: YYYY-MM-DD optionally followed by a suffix.
+var datedFolderPattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}`)
+
+// LooksLikeQuizRoot reports whether dir has the shape of a quiz-root:
+// either a history.hujson already sits at its top, or it contains at
+// least one subdirectory whose name begins with a YYYY-MM-DD prefix.
+// An empty or unreadable dir returns false.
+func LooksLikeQuizRoot(dir string) bool {
+	if dir == "" {
+		return false
+	}
+	if _, err := os.Stat(inQuizRootPath(dir)); err == nil {
+		return true
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.IsDir() && datedFolderPattern.MatchString(e.Name()) {
+			return true
+		}
+	}
+	return false
+}
+
+// FindQuizRoot walks upwards from start, stopping at the first ancestor
+// directory that looks like a quiz-root (see [LooksLikeQuizRoot]).
+// Returns ok=false when no qualifying ancestor is found (e.g. running
+// from a throwaway directory with no dated siblings anywhere above it).
+//
+// The walk includes start itself as the first candidate. It stops at
+// the filesystem root and does not cross it.
+func FindQuizRoot(start string) (string, bool) {
+	if start == "" {
+		return "", false
+	}
+	abs, err := filepath.Abs(start)
+	if err != nil {
+		return "", false
+	}
+	dir := filepath.Clean(abs)
+	for {
+		if LooksLikeQuizRoot(dir) {
+			return dir, true
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", false
+		}
+		dir = parent
+	}
+}
+
+// ResolvePath returns the best path for the history file. It walks
+// upwards from start (via [FindQuizRoot]) looking for an ancestor that
+// looks like a quiz-root; if found, the history lives at
+// <ancestor>/history.hujson and travels with the user's sync setup.
+// Otherwise it falls back to $XDG_CONFIG_HOME/qlimaster/history.hujson
+// so ad-hoc runs from scratch directories don't scatter state.
+//
+// start is typically the directory of the current quiz.hujson (i.e. the
+// dated per-quiz folder). Passing the empty string short-circuits to
+// the XDG path.
+func ResolvePath(start string) (string, error) {
+	if root, ok := FindQuizRoot(start); ok {
+		return inQuizRootPath(root), nil
+	}
+	return xdgPath()
 }
 
 // Load reads the history file at path. A missing file is not an error:

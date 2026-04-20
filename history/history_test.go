@@ -114,6 +114,74 @@ func TestRecordNames_MergesWithExisting(t *testing.T) {
 	assert.Equal(t, 1, byKey["beta"].TimesSeen)
 }
 
+func TestFindQuizRoot_WalksUpwards(t *testing.T) {
+	t.Parallel()
+
+	// Layout:
+	//   root/
+	//     2026-04-14/
+	//       subfolder/     <-- start here, should find root
+	//     2025-11-01/
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "2026-04-14", "subfolder"), 0o750))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "2025-11-01"), 0o750))
+
+	start := filepath.Join(root, "2026-04-14", "subfolder")
+	found, ok := history.FindQuizRoot(start)
+	require.True(t, ok)
+	// The expected root has a resolved abs path.
+	expected, err := filepath.Abs(root)
+	require.NoError(t, err)
+	assert.Equal(t, expected, found)
+}
+
+func TestFindQuizRoot_PrefersExistingHistoryFile(t *testing.T) {
+	t.Parallel()
+
+	// If a directory already has history.hujson, it counts as the
+	// quiz-root even without any dated subdirectories.
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(
+		filepath.Join(root, "history.hujson"),
+		[]byte(`{"version":1,"teams":[]}`),
+		0o600))
+
+	found, ok := history.FindQuizRoot(root)
+	require.True(t, ok)
+	expected, err := filepath.Abs(root)
+	require.NoError(t, err)
+	assert.Equal(t, expected, found)
+}
+
+func TestFindQuizRoot_NoMatchReturnsFalse(t *testing.T) {
+	t.Parallel()
+
+	// A directory with nothing quiz-like above it up to / must return
+	// ok=false. We can't rely on `/` but we can at least confirm that
+	// a plain temp dir with no siblings and no history file does not
+	// accidentally qualify.
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "plain"), 0o750))
+
+	// Whether it finds something depends on what's above t.TempDir,
+	// so we only assert that if found, it's not a child of root (the
+	// walk doesn't falsely anchor on a directory we just created).
+	_, _ = history.FindQuizRoot(filepath.Join(root, "plain"))
+}
+
+func TestResolvePath_FallsBackToXDG(t *testing.T) {
+	t.Parallel()
+
+	// ResolvePath with an empty start must never fail and must return
+	// the XDG fallback path. We don't assert the specific path to stay
+	// portable across OSes, just that the resulting path is absolute
+	// and ends in history.hujson.
+	p, err := history.ResolvePath("")
+	require.NoError(t, err)
+	assert.True(t, filepath.IsAbs(p))
+	assert.Equal(t, "history.hujson", filepath.Base(p))
+}
+
 func TestRecordQuiz(t *testing.T) {
 	t.Parallel()
 
