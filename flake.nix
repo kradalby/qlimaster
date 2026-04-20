@@ -23,11 +23,21 @@
           else if self ? dirtyRev then (builtins.substring 0 7 self.dirtyRev) + "-dirty"
           else "dev";
 
-        qlimaster = pkgs.buildGo126Module or (pkgs.buildGoModule.override { inherit go; }) {
+        # Use buildGoModule pinned to Go 1.26 so the flake's toolchain
+        # matches go.mod regardless of the default Go in nixpkgs.
+        buildGoModule126 =
+          if pkgs ? buildGo126Module
+          then pkgs.buildGo126Module
+          else pkgs.buildGoModule.override { inherit go; };
+
+        qlimaster = buildGoModule126 {
           pname = "qlimaster";
           inherit version;
           src = ./.;
-          vendorHash = null;
+          # vendorHash is the sha256 of the fetched Go module cache. Bump
+          # this after changing go.sum (`nix build` will print the new
+          # hash in the error output).
+          vendorHash = "sha256-BClHLKlC/fn3cwcD6MNtteDvmAOiWJ58gGrpqwdAtiM=";
           subPackages = [ "cmd/qlimaster" ];
           env.CGO_ENABLED = "0";
           ldflags = [ "-s" "-w" "-X main.version=${version}" ];
