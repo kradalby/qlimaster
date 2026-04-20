@@ -17,8 +17,9 @@ func (m Model) renderTable(l Layout) string {
 	header := m.renderHeaderRow(l)
 	body := m.renderBodyRows(l)
 	avg := m.renderAveragesRow(l)
-	rule := m.renderThickRule(l)
-	return lipgloss.JoinVertical(lipgloss.Left, header, rule, body, rule, avg)
+	thinRule := m.renderThinRule(l)
+	thickRule := m.renderThickRule(l)
+	return lipgloss.JoinVertical(lipgloss.Left, header, thinRule, body, thickRule, avg)
 }
 
 // labelPosition, labelTeam ... return the header label text for the
@@ -66,17 +67,25 @@ func (m Model) renderHeaderRow(l Layout) string {
 	}
 	parts = append(parts, padCell(l.labelTotal(), l.TotalWidth, alignRight))
 
-	line := strings.Join(parts, " │ ")
-	line = " " + line
+	inner := strings.Join(parts, " │ ")
+	inner = " " + inner
 	if l.RightPad > 0 {
-		line += strings.Repeat(" ", l.RightPad)
+		inner += strings.Repeat(" ", l.RightPad)
 	}
-	return padLine(styles.TableHeader.Render(line), l.Width)
+	padded := padLine(inner, l.Width)
+	return styles.TableHeader.Render(padded)
 }
 
-// renderThickRule draws a full-width thin rule between sections.
-func (m Model) renderThickRule(l Layout) string {
+// renderThinRule draws a full-width single-line rule between the header
+// and the body rows.
+func (m Model) renderThinRule(l Layout) string {
 	return padLine(styles.Separator.Render(strings.Repeat("─", l.Width)), l.Width)
+}
+
+// renderThickRule draws a full-width heavy rule above the averages row
+// so the averages visually separate from the data body.
+func (m Model) renderThickRule(l Layout) string {
+	return padLine(styles.ThickRule.Render(strings.Repeat("━", l.Width)), l.Width)
 }
 
 func (m Model) renderBodyRows(l Layout) string {
