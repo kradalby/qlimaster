@@ -37,7 +37,8 @@ linters:
     - mnd                # magic-number detection is too noisy for defaults
     - noinlineerr        # `if err := ...` idiom is preferred here
     - err113             # prefer concrete %w-wrapped errors where useful
-    - dupword            # false positives in prose comments
+    - dupword            # false positives in prose
+    - exhaustive         # switch + default is the project's convention comments
 
   settings:
     funlen:
@@ -86,6 +87,7 @@ linters:
           - gosec
           - errcheck
           - wrapcheck
+          - testpackage
       - path: cmd/qlimaster/qlimaster\.go
         linters:
           - funlen
