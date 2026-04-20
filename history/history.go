@@ -4,10 +4,12 @@
 //
 // Two sources are combined:
 //
-//  1. A persistent cache at $XDG_CONFIG_HOME/qlimaster/history.hujson
-//     that records the last date each name was used and how many times.
-//  2. A live scan of sibling quiz folders under a configurable root,
-//     which is resilient to a missing or stale cache file.
+//  1. A persistent file at <quiz-root>/history.hujson that records the
+//     last date each name was used and how many times. The quiz-root
+//     is the folder that holds the per-date quiz subfolders, so the
+//     history lives next to them and moves with the user's sync setup.
+//  2. A live scan of sibling quiz folders under the same root, which
+//     is resilient to a missing or stale history file.
 //
 // The public API exposes a merged, deduplicated list sorted by most
 // recently seen (ties broken by times-seen then by name).
@@ -23,7 +25,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/adrg/xdg"
 	"github.com/kradalby/qlimaster/quiz"
 	"github.com/tailscale/hujson"
 )
@@ -41,13 +42,17 @@ type History struct {
 	Teams   []Entry `json:"teams"   hujson:"teams"`
 }
 
-// DefaultPath returns the XDG-compliant default path for the history file.
-func DefaultPath() (string, error) {
-	p, err := xdg.ConfigFile("qlimaster/history.hujson")
-	if err != nil {
-		return "", fmt.Errorf("xdg config: %w", err)
-	}
-	return p, nil
+// DefaultPath returns the canonical history-file path for a given
+// quiz-root directory (the folder that contains the per-date quiz
+// subfolders). The file lives at <quizRoot>/history.hujson so it sits
+// next to the individual quizzes and travels with the user's sync
+// setup.
+//
+// An empty quizRoot is a programmer error; the caller must resolve
+// the quiz root first (typically the parent of the current working
+// directory).
+func DefaultPath(quizRoot string) string {
+	return filepath.Join(quizRoot, "history.hujson")
 }
 
 // Load reads the history file at path. A missing file is not an error:
@@ -166,19 +171,36 @@ func SortEntries(xs []Entry) {
 // RecordQuiz updates the history with names from a quiz seen on the given
 // date. Each team is counted once per quiz.
 func RecordQuiz(h History, q quiz.Quiz, date time.Time) History {
-	d := date.Format("2006-01-02")
-	seen := make(map[string]struct{}, len(q.Teams))
-	additions := make([]Entry, 0, len(q.Teams))
+	names := make([]string, 0, len(q.Teams))
 	for _, t := range q.Teams {
-		key := strings.ToLower(strings.TrimSpace(t.Name))
-		if key == "" {
+		names = append(names, t.Name)
+	}
+	return RecordNames(h, names, date)
+}
+
+// RecordNames updates the history with the supplied team names, treating
+// them as a single session: duplicates within names are counted once,
+// and case-insensitive matches against existing entries update
+// LastSeen and bump TimesSeen by one. Empty/whitespace-only names are
+// skipped.
+func RecordNames(h History, names []string, date time.Time) History {
+	d := date.Format("2006-01-02")
+	seen := make(map[string]struct{}, len(names))
+	additions := make([]Entry, 0, len(names))
+	for _, raw := range names {
+		name := strings.TrimSpace(raw)
+		if name == "" {
 			continue
 		}
+		key := strings.ToLower(name)
 		if _, ok := seen[key]; ok {
 			continue
 		}
 		seen[key] = struct{}{}
-		additions = append(additions, Entry{Name: t.Name, LastSeen: d, TimesSeen: 1})
+		additions = append(additions, Entry{Name: name, LastSeen: d, TimesSeen: 1})
+	}
+	if len(additions) == 0 {
+		return h
 	}
 	return Merge(h, History{Version: 1, Teams: additions})
 }

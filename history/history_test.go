@@ -3,6 +3,7 @@ package history_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -67,6 +68,50 @@ func TestMerge_Dedup(t *testing.T) {
 	}
 	// Sorted most-recent first.
 	assert.Equal(t, "Alpha", m.Teams[0].Name)
+}
+
+func TestRecordNames_DedupesAndBumpsOnce(t *testing.T) {
+	t.Parallel()
+
+	date := time.Date(2026, 4, 14, 19, 0, 0, 0, time.UTC)
+	h := history.RecordNames(history.History{Version: 1},
+		[]string{"Alpha", "alpha", "  Beta ", "", "Alpha"},
+		date)
+	require.Len(t, h.Teams, 2)
+
+	byName := map[string]history.Entry{}
+	for _, e := range h.Teams {
+		byName[e.Name] = e
+	}
+	// Alpha was named twice with the same casing and once as "alpha",
+	// but RecordNames is one-session-one-bump, so TimesSeen=1.
+	assert.Equal(t, 1, byName["Alpha"].TimesSeen)
+	assert.Equal(t, 1, byName["Beta"].TimesSeen)
+	assert.Equal(t, "2026-04-14", byName["Alpha"].LastSeen)
+}
+
+func TestRecordNames_MergesWithExisting(t *testing.T) {
+	t.Parallel()
+
+	older := history.History{
+		Version: 1,
+		Teams: []history.Entry{
+			{Name: "Alpha", LastSeen: "2025-11-01", TimesSeen: 2},
+		},
+	}
+	date := time.Date(2026, 4, 14, 19, 0, 0, 0, time.UTC)
+	h := history.RecordNames(older, []string{"alpha", "Beta"}, date)
+
+	// Merge preserves the most-recently-seen casing; "alpha" (this
+	// session) wins over "Alpha" (older entry).
+	byKey := map[string]history.Entry{}
+	for _, e := range h.Teams {
+		byKey[strings.ToLower(e.Name)] = e
+	}
+	// Alpha: pre-existing 2 + this session 1 = 3; LastSeen advances.
+	assert.Equal(t, 3, byKey["alpha"].TimesSeen)
+	assert.Equal(t, "2026-04-14", byKey["alpha"].LastSeen)
+	assert.Equal(t, 1, byKey["beta"].TimesSeen)
 }
 
 func TestRecordQuiz(t *testing.T) {
