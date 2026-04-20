@@ -15,6 +15,12 @@
 /NOTES.md
 /.scratch/
 
+# local quiz data produced by running qlimaster from the repo root
+/quiz.hujson
+/quiz.hujson.tmp
+/quiz.csv
+/quiz.xlsx
+
 # editor / os
 .DS_Store
 *.swp
