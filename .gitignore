@@ -1,0 +1,23 @@
+# build artifacts
+/qlimaster
+/dist/
+/result
+/result-*
+
+# go
+*.test
+*.out
+/coverage.out
+/coverage.html
+
+# planning / scratch (never committed)
+/PLAN.md
+/NOTES.md
+/.scratch/
+
+# editor / os
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
