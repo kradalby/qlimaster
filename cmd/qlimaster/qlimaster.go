@@ -17,7 +17,10 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/kradalby/qlimaster/export"
+	"github.com/kradalby/qlimaster/history"
 	"github.com/kradalby/qlimaster/quiz"
+	"github.com/kradalby/qlimaster/store"
 	"github.com/kradalby/qlimaster/ui"
 	"github.com/peterbourgon/ff/v4"
 	"github.com/peterbourgon/ff/v4/ffhelp"
@@ -78,9 +81,123 @@ func newRootCommand() *ff.Command {
 		},
 		Subcommands: []*ff.Command{
 			newVersionCommand(),
+			newExportCommand(),
+			newHistoryCommand(),
 		},
 	}
 	return root
+}
+
+func newExportCommand() *ff.Command {
+	fs := ff.NewFlagSet("export")
+	var (
+		format = fs.StringLong("format", "both", "csv | xlsx | both")
+		out    = fs.StringLong("out", "", "output directory (default: CWD)")
+	)
+	return &ff.Command{
+		Name:      "export",
+		Usage:     "qlimaster export [--format=csv|xlsx|both] [--out=DIR]",
+		ShortHelp: "export the quiz in the current directory",
+		Flags:     fs,
+		Exec: func(_ context.Context, _ []string) error {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("getwd: %w", err)
+			}
+			path := filepath.Join(cwd, "quiz.hujson")
+			q, err := store.Load(path)
+			if err != nil {
+				return fmt.Errorf("load quiz: %w", err)
+			}
+			outDir := *out
+			if outDir == "" {
+				outDir = cwd
+			}
+			switch *format {
+			case "csv":
+				return exportCSV(q, outDir)
+			case "xlsx":
+				return exportXLSX(q, outDir)
+			case "both":
+				if err := exportCSV(q, outDir); err != nil {
+					return err
+				}
+				return exportXLSX(q, outDir)
+			default:
+				return fmt.Errorf("unknown format %q (expected csv|xlsx|both)", *format)
+			}
+		},
+	}
+}
+
+func exportCSV(q quiz.Quiz, dir string) error {
+	target := filepath.Join(dir, "quiz.csv")
+	if err := export.CSVFile(target, q); err != nil {
+		return fmt.Errorf("csv: %w", err)
+	}
+	fmt.Println("wrote", target)
+	return nil
+}
+
+func exportXLSX(q quiz.Quiz, dir string) error {
+	target := filepath.Join(dir, "quiz.xlsx")
+	if err := export.XLSX(target, q); err != nil {
+		return fmt.Errorf("xlsx: %w", err)
+	}
+	fmt.Println("wrote", target)
+	return nil
+}
+
+func newHistoryCommand() *ff.Command {
+	return &ff.Command{
+		Name:      "history",
+		Usage:     "qlimaster history <subcommand>",
+		ShortHelp: "manage the global team-history file",
+		Flags:     ff.NewFlagSet("history"),
+		Subcommands: []*ff.Command{
+			newHistoryRebuildCommand(),
+		},
+		Exec: func(_ context.Context, _ []string) error {
+			return errHistoryNeedsSub
+		},
+	}
+}
+
+var errHistoryNeedsSub = errors.New("history requires a subcommand")
+
+func newHistoryRebuildCommand() *ff.Command {
+	fs := ff.NewFlagSet("rebuild")
+	root := fs.StringLong("quiz-root", "",
+		"root folder to scan (default: parent of CWD)")
+	return &ff.Command{
+		Name:      "rebuild",
+		Usage:     "qlimaster history rebuild [--quiz-root=DIR]",
+		ShortHelp: "rescan sibling quiz folders and overwrite the history file",
+		Flags:     fs,
+		Exec: func(_ context.Context, _ []string) error {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("getwd: %w", err)
+			}
+			scanRoot := *root
+			if scanRoot == "" {
+				scanRoot = filepath.Dir(cwd)
+			}
+			scanned, err := history.Scan(scanRoot)
+			if err != nil {
+				return fmt.Errorf("scan %s: %w", scanRoot, err)
+			}
+			path, err := history.DefaultPath()
+			if err != nil {
+				return fmt.Errorf("history path: %w", err)
+			}
+			if err := history.Save(path, scanned); err != nil {
+				return fmt.Errorf("save history: %w", err)
+			}
+			fmt.Printf("wrote %s (%d teams)\n", path, len(scanned.Teams))
+			return nil
+		},
+	}
 }
 
 type runOpts struct {
