@@ -30,30 +30,35 @@ func TestEditScore_NavigateAndEdit(t *testing.T) {
 	var model tea.Model = m
 	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
 
-	// Press 'i' to enter edit mode.
+	// Press 'i' to enter edit mode; cursor starts on CellTeam.
 	model, _ = model.Update(teaKey("i"))
 	mm, ok := model.(Model)
 	require.True(t, ok)
 	require.Equal(t, ModeEditScore, mm.mode)
+	assert.Equal(t, CellTeam, mm.focusedCell.Kind)
 
-	// Move right twice so editCol points at round 1 (editColRound1).
-	model, _ = model.Update(teaKey("l"))
-	model, _ = model.Update(teaKey("l"))
+	// Navigate right to round 1. The sequence at Full breakpoint with
+	// Checkpoints=[3] and Rounds=3 is:
+	//   Position, Team, Players, Round 1, Round 2, Round 3, Halftime 3, Total
+	model, _ = model.Update(teaKey("l")) // Players
+	model, _ = model.Update(teaKey("l")) // Round 1
 	mm, ok = model.(Model)
 	require.True(t, ok)
-	assert.Equal(t, editColRound1, mm.editCol)
-	assert.Equal(t, 1, mm.focusedRound())
+	assert.Equal(t, CellRound, mm.focusedCell.Kind)
+	assert.Equal(t, 1, mm.focusedCell.Round)
 
-	// Enter edit cell, type "5", commit.
+	// Enter edit, type "5", commit.
 	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
 	model, _ = model.Update(teaKey("5"))
 	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
 	mm, ok = model.(Model)
 	require.True(t, ok)
 	assert.False(t, mm.edit.editing)
+	// Cursor must stay on the same cell after commit.
+	assert.Equal(t, CellRound, mm.focusedCell.Kind)
+	assert.Equal(t, 1, mm.focusedCell.Round)
 
-	// Confirm a score was recorded (for one of the teams -- the first
-	// sorted, which by name is Alpha).
+	// A round 1 score of 5 must now exist for one of the teams.
 	var found bool
 	for _, team := range mm.quiz.Teams {
 		if v, ok := team.Score(1); ok && v == 5 {
@@ -61,6 +66,36 @@ func TestEditScore_NavigateAndEdit(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "expected a round 1 score of 5 to be recorded")
+}
+
+// TestEditScore_ReadOnlyCellIgnoresEnter exercises pressing Enter on
+// the Position cell (read-only): the status line reports the reason
+// and editing does not begin.
+func TestEditScore_ReadOnlyCellIgnoresEnter(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	m, err := New(Config{
+		Path:       filepath.Join(dir, "quiz.hujson"),
+		QuizConfig: quiz.DefaultConfig(),
+		QuizRoot:   dir,
+	})
+	require.NoError(t, err)
+	m, _ = m.apply(quiz.ChangeAddTeam{Name: "Alpha"})
+
+	var model tea.Model = m
+	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	model, _ = model.Update(teaKey("i"))
+	// Go all the way to the left (CellPosition).
+	model, _ = model.Update(teaKey("h"))
+	model, _ = model.Update(teaKey("h"))
+	mm, _ := model.(Model)
+	require.Equal(t, CellPosition, mm.focusedCell.Kind)
+
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
+	mm, _ = model.(Model)
+	assert.False(t, mm.edit.editing)
+	assert.Contains(t, mm.status, "read-only")
 }
 
 // TestEditScore_ClearCell clears a previously recorded score via 'x'.
@@ -82,8 +117,10 @@ func TestEditScore_ClearCell(t *testing.T) {
 	var model tea.Model = m
 	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
 	model, _ = model.Update(teaKey("i"))
-	model, _ = model.Update(teaKey("l"))
-	model, _ = model.Update(teaKey("l"))
+	// Team -> Round 1 (no Players column at this breakpoint? It's full
+	// at 140 cols so Players is present; navigate past it.)
+	model, _ = model.Update(teaKey("l")) // Players
+	model, _ = model.Update(teaKey("l")) // Round 1
 	model, _ = model.Update(teaKey("x"))
 	mm, _ := model.(Model)
 
@@ -109,8 +146,8 @@ func TestEditScore_InvalidScoreStaysInEdit(t *testing.T) {
 	var model tea.Model = m
 	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
 	model, _ = model.Update(teaKey("i"))
-	model, _ = model.Update(teaKey("l"))
-	model, _ = model.Update(teaKey("l"))
+	model, _ = model.Update(teaKey("l")) // Players
+	model, _ = model.Update(teaKey("l")) // Round 1
 	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
 	// 11 is out of range for questions=10.
 	model, _ = model.Update(teaKey("1"))

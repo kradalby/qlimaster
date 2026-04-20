@@ -74,9 +74,9 @@ type Model struct {
 	// enter is the ephemeral state for the EnterScore flow.
 	enter enterState
 
-	// editCol is the logical column the edit cursor sits on in
-	// ModeEditScore.
-	editCol int
+	// focusedCell is the cell under the cursor in Edit mode. NoCell in
+	// other modes.
+	focusedCell Cell
 	// edit is the ephemeral state for the EditScore flow.
 	edit editState
 
