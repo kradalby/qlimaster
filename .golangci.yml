@@ -1,0 +1,89 @@
+# golangci-lint configuration.
+#
+# Strategy: enable every linter, then opt out of the ones that don't fit this
+# project. Easier to see at a glance what we've chosen NOT to run than to keep
+# a long enable-list in sync.
+
+version: "2"
+
+run:
+  go: "1.26"
+  timeout: 5m
+  tests: true
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+
+linters:
+  default: all
+  disable:
+    - lll                # formatter governs line length
+    - wsl                # overly opinionated whitespace rules
+    - wsl_v5             # same, v5 rewrite
+    - nlreturn           # pairs with wsl; noisy
+    - gochecknoglobals   # package-level lipgloss styles are expected
+    - gochecknoinits     # init() is allowed for registering styles/keys
+    - exhaustruct        # zero-value struct fields are fine
+    - depguard           # enable later once deps stabilise
+    - cyclop             # redundant with gocyclo + gocognit
+    - nolintlint         # low value noise
+    - ireturn            # we return interfaces from a few helpers
+    - varnamelen         # revive covers naming; varnamelen is too noisy
+    - tagalign           # gofumpt handles layout
+    - godox              # TODO/FIXME are allowed during development
+    - forbidigo          # fmt.Print is fine in a CLI entry point
+    - mnd                # magic-number detection is too noisy for defaults
+    - noinlineerr        # `if err := ...` idiom is preferred here
+
+  settings:
+    funlen:
+      lines: 120
+      statements: 60
+    gocyclo:
+      min-complexity: 15
+    gocognit:
+      min-complexity: 20
+    nestif:
+      min-complexity: 5
+    revive:
+      rules:
+        - name: exported
+        - name: var-naming
+        - name: package-comments
+        - name: error-return
+        - name: error-strings
+        - name: if-return
+        - name: unused-parameter
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - opinionated
+        - performance
+        - style
+      disabled-checks:
+        - unnamedResult
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+          hujson: snake
+    testifylint:
+      enable-all: true
+
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - funlen
+          - gocyclo
+          - gocognit
+          - dupl
+          - gosec
+          - errcheck
+          - wrapcheck
+      - path: cmd/qlimaster/qlimaster\.go
+        linters:
+          - funlen
+          - gocognit
