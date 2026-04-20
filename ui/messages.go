@@ -5,6 +5,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/kradalby/qlimaster/history"
 	"github.com/kradalby/qlimaster/quiz"
 	"github.com/kradalby/qlimaster/store"
 )
@@ -34,6 +35,22 @@ func clearStatusCmd(d time.Duration) tea.Cmd {
 	return tea.Tick(d, func(_ time.Time) tea.Msg {
 		return clearStatusMsg{}
 	})
+}
+
+// historySavedMsg is emitted by the async history-save command. An error
+// is recorded so the UI can surface it as a toast, but history save
+// failures never abort the quiz save itself.
+type historySavedMsg struct {
+	When time.Time
+	Err  error
+}
+
+// historySaveCmd persists the team-name history file asynchronously.
+func historySaveCmd(path string, h history.History) tea.Cmd {
+	return func() tea.Msg {
+		err := history.Save(path, h)
+		return historySavedMsg{When: time.Now(), Err: err}
+	}
 }
 
 // onSaved folds a savedMsg into the model, producing a status toast.

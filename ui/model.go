@@ -4,12 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/kradalby/qlimaster/history"
 	"github.com/kradalby/qlimaster/quiz"
 	"github.com/kradalby/qlimaster/store"
+	"tailscale.com/util/set"
 )
 
 // Mode is the UI's current top-level state. Each value dispatches key
@@ -71,6 +73,14 @@ type Model struct {
 	quiz    quiz.Quiz
 	path    string // absolute path to quiz.hujson
 	history history.History
+	// historyPath is the resolved absolute path to history.hujson; used
+	// for live history updates on team-name mutations.
+	historyPath string
+	// sessionRecordedNames tracks which team names (lower-cased) have
+	// already been persisted to the history file during this session.
+	// Ensures each team bumps TimesSeen at most once per run, even if
+	// the name is later edited.
+	sessionRecordedNames set.Set[string]
 
 	mode Mode
 
@@ -141,18 +151,35 @@ func New(cfg Config) (Model, error) {
 	if err != nil {
 		return Model{}, err
 	}
-	hist, err := loadHistory(cfg.HistoryPath, cfg.QuizRoot)
+
+	historyPath := cfg.HistoryPath
+	if historyPath == "" {
+		historyPath = history.DefaultPath(cfg.QuizRoot)
+	}
+	hist, err := loadHistory(historyPath, cfg.QuizRoot)
 	if err != nil {
 		// History is best-effort; we still start the UI.
 		hist = history.History{Version: 1}
 	}
 
+	// Seed the session-recorded set with every team already present
+	// in the loaded quiz, so reopening a quiz file does not re-bump
+	// TimesSeen on existing names.
+	recorded := set.Set[string]{}
+	for _, t := range q.Teams {
+		if key := strings.ToLower(strings.TrimSpace(t.Name)); key != "" {
+			recorded.Add(key)
+		}
+	}
+
 	return Model{
-		quiz:        q,
-		path:        cfg.Path,
-		history:     hist,
-		mode:        ModeNormal,
-		lastEntered: computeLastEntered(q),
+		quiz:                 q,
+		path:                 cfg.Path,
+		history:              hist,
+		historyPath:          historyPath,
+		sessionRecordedNames: recorded,
+		mode:                 ModeNormal,
+		lastEntered:          computeLastEntered(q),
 	}, nil
 }
 
@@ -173,15 +200,11 @@ func loadOrCreate(path string, cfg quiz.Config) (quiz.Quiz, error) {
 	return fresh, nil
 }
 
-// loadHistory combines the persisted XDG history file with a live scan of
-// sibling quiz folders.
+// loadHistory combines the persisted history file with a live scan of
+// sibling quiz folders under quizRoot.
 func loadHistory(historyPath, quizRoot string) (history.History, error) {
 	if historyPath == "" {
-		var err error
-		historyPath, err = history.DefaultPath()
-		if err != nil {
-			return history.History{}, fmt.Errorf("default history path: %w", err)
-		}
+		historyPath = history.DefaultPath(quizRoot)
 	}
 	persisted, err := history.Load(historyPath)
 	if err != nil {
@@ -224,6 +247,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKey(msg)
 	case savedMsg:
 		return m.onSaved(msg), nil
+	case historySavedMsg:
+		// History saves are best-effort; only a failure is worth
+		// surfacing, and even then the quiz.hujson save is already
+		// persisted so we do not need to block the UI.
+		if msg.Err != nil {
+			m.status = "history save failed: " + msg.Err.Error()
+			m.statusExpiry = msg.When.Add(1500 * time.Millisecond)
+			return m, clearStatusCmd(1500 * time.Millisecond)
+		}
+		return m, nil
 	case clearStatusMsg:
 		if !time.Now().Before(m.statusExpiry) {
 			m.status = ""

@@ -187,10 +187,7 @@ func newHistoryRebuildCommand() *ff.Command {
 			if err != nil {
 				return fmt.Errorf("scan %s: %w", scanRoot, err)
 			}
-			path, err := history.DefaultPath()
-			if err != nil {
-				return fmt.Errorf("history path: %w", err)
-			}
+			path := history.DefaultPath(scanRoot)
 			if err := history.Save(path, scanned); err != nil {
 				return fmt.Errorf("save history: %w", err)
 			}

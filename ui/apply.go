@@ -1,10 +1,13 @@
 package ui
 
 import (
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/kradalby/qlimaster/history"
 	"github.com/kradalby/qlimaster/quiz"
+	"tailscale.com/util/set"
 )
 
 // apply routes a quiz.Change through quiz.Apply, persists the result, and
@@ -30,8 +33,9 @@ func (m Model) apply(c quiz.Change) (Model, tea.Cmd) {
 	}
 	if res.WinnerDecided {
 		winnerID := ""
+		ranking := quiz.Rank(newQuiz)
 		for _, t := range newQuiz.Teams {
-			if quiz.Rank(newQuiz).PositionOf(t.ID) == 1 {
+			if ranking.PositionOf(t.ID) == 1 {
 				winnerID = t.ID
 				break
 			}
@@ -41,5 +45,48 @@ func (m Model) apply(c quiz.Change) (Model, tea.Cmd) {
 		}
 	}
 	_ = res.ReRanked
+
+	// Live-update the global team-name history whenever a fresh name
+	// appears. This keeps the fuzzy add-team suggestions useful across
+	// sessions without requiring a manual `qlimaster history rebuild`.
+	var historyCmd tea.Cmd
+	m, historyCmd = m.maybeRecordNewNames()
+	if historyCmd != nil {
+		cmds = append(cmds, historyCmd)
+	}
+
 	return m, tea.Batch(cmds...)
+}
+
+// maybeRecordNewNames checks the current quiz for any team name not yet
+// tracked in this session's sessionRecordedNames set. For each fresh
+// name it updates the in-memory history and schedules an async save.
+// The session set prevents double-bumping TimesSeen when the same team
+// is mutated repeatedly (score edits, rename, etc.) within one run.
+func (m Model) maybeRecordNewNames() (Model, tea.Cmd) {
+	if m.historyPath == "" {
+		return m, nil
+	}
+	if m.sessionRecordedNames == nil {
+		m.sessionRecordedNames = set.Set[string]{}
+	}
+
+	fresh := make([]string, 0)
+	for _, t := range m.quiz.Teams {
+		name := strings.TrimSpace(t.Name)
+		if name == "" {
+			continue
+		}
+		key := strings.ToLower(name)
+		if m.sessionRecordedNames.Contains(key) {
+			continue
+		}
+		m.sessionRecordedNames.Add(key)
+		fresh = append(fresh, name)
+	}
+	if len(fresh) == 0 {
+		return m, nil
+	}
+	m.history = history.RecordNames(m.history, fresh, time.Now())
+	return m, historySaveCmd(m.historyPath, m.history)
 }
