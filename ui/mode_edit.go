@@ -286,7 +286,7 @@ func cellLabel(c Cell, team *quiz.Team) string {
 	case CellRound:
 		return "round " + strconv.Itoa(c.Round) + " · " + team.Name
 	case CellCheckpoint:
-		return "halftime R" + strconv.Itoa(c.Round) + " · " + team.Name
+		return "score after R" + strconv.Itoa(c.Round) + " · " + team.Name
 	case CellTotal:
 		return "total · " + team.Name
 	default:

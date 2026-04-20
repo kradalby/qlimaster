@@ -203,18 +203,17 @@ func renderRoundsTwoColumn(q quiz.Quiz, t quiz.Team) string {
 	return strings.Join(rows, "\n")
 }
 
-// renderCheckpointsLine adds halftime and final subtotals at the bottom
-// of the card.
+// renderCheckpointsLine adds subtotal checkpoints and the final total at
+// the bottom of the card. Checkpoints that land on the last round are
+// skipped because the Final column already shows the same value.
 func renderCheckpointsLine(q quiz.Quiz, t quiz.Team) string {
-	if len(q.Config.Checkpoints) == 0 {
-		return ""
-	}
-	parts := make([]string, 0, len(q.Config.Checkpoints)+1)
-	for _, cp := range q.Config.Checkpoints {
+	cps := filterNonFinalCheckpoints(q.Config.Checkpoints, q.Config.Rounds)
+	parts := make([]string, 0, len(cps)+1)
+	for _, cp := range cps {
 		parts = append(parts,
-			"After R"+strconv.Itoa(cp)+"  "+score.Format(quiz.Checkpoint(t, cp)))
+			"Score after R"+strconv.Itoa(cp)+"  "+score.Format(quiz.Checkpoint(t, cp)))
 	}
-	parts = append(parts, "Final  "+score.Format(t.Total()))
+	parts = append(parts, "Total  "+score.Format(t.Total()))
 	return styles.Dimmed.Render(strings.Join(parts, "     "))
 }
 

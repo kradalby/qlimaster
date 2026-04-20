@@ -44,9 +44,9 @@ func (l Layout) labelRound(r int) string {
 
 func (l Layout) labelCheckpoint(r int) string {
 	if l.UseLongLabels {
-		return "Half R" + strconv.Itoa(r)
+		return "Score R" + strconv.Itoa(r)
 	}
-	return "H" + strconv.Itoa(r)
+	return "S" + strconv.Itoa(r)
 }
 
 func (l Layout) labelTotal() string { return "Total" }

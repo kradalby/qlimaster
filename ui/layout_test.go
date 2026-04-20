@@ -70,9 +70,10 @@ func TestCompute_MinimalCheckpoints(t *testing.T) {
 	l = ui.Compute(85, 40, cfg, 5)
 	assert.Equal(t, []int{4}, l.VisibleCheckpts)
 
-	// Round 8 entered: checkpoint 8 (highest <= 8) shown.
+	// Round 8 entered: the R8 checkpoint duplicates Total and is
+	// filtered out, so the next-best (R4) is shown.
 	l = ui.Compute(85, 40, cfg, 8)
-	assert.Equal(t, []int{8}, l.VisibleCheckpts)
+	assert.Equal(t, []int{4}, l.VisibleCheckpts)
 }
 
 func TestCompute_TableHeight(t *testing.T) {
@@ -86,6 +87,16 @@ func TestCompute_TableHeight(t *testing.T) {
 	// Very short viewport clamps to zero.
 	l = ui.Compute(150, 5, cfg, 0)
 	assert.Equal(t, 0, l.TableHeight)
+}
+
+func TestCompute_DropsFinalRoundCheckpoint(t *testing.T) {
+	t.Parallel()
+
+	// Rounds=8 with Checkpoints=[4,8]: the R8 checkpoint duplicates
+	// Total and must not appear in the layout.
+	cfg := quiz.Config{Rounds: 8, QuestionsPerRound: 10, Checkpoints: []int{4, 8}}
+	l := ui.Compute(200, 40, cfg, 8)
+	assert.Equal(t, []int{4}, l.VisibleCheckpts)
 }
 
 func TestCompute_TeamWidthCapped(t *testing.T) {

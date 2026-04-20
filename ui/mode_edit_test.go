@@ -39,7 +39,9 @@ func TestEditScore_NavigateAndEdit(t *testing.T) {
 
 	// Navigate right to round 1. The sequence at Full breakpoint with
 	// Checkpoints=[3] and Rounds=3 is:
-	//   Position, Team, Players, Round 1, Round 2, Round 3, Halftime 3, Total
+	//   Position, Team, Players, Round 1, Round 2, Round 3, Total
+	// The configured checkpoint at round 3 is filtered out because it
+	// duplicates Total.
 	model, _ = model.Update(teaKey("l")) // Players
 	model, _ = model.Update(teaKey("l")) // Round 1
 	mm, ok = model.(Model)

@@ -47,7 +47,7 @@ type Layout struct {
 	Breakpoint Breakpoint
 
 	// UseLongLabels is true at the Full breakpoint where header labels
-	// spell out "Position", "Round 1", "Halftime R4" instead of
+	// spell out "Position", "Round 1", "Score R4" instead of
 	// abbreviating.
 	UseLongLabels bool
 
@@ -114,16 +114,20 @@ func Compute(width, height int, cfg quiz.Config, lastEnteredRound int) Layout {
 	layout.Breakpoint = classify(width)
 	layout.UseLongLabels = layout.Breakpoint == BreakpointFull
 
+	// A checkpoint that lands on the last round duplicates the Total
+	// column, so it is dropped from the display regardless of breakpoint.
+	nonFinalCheckpoints := filterNonFinalCheckpoints(cfg.Checkpoints, cfg.Rounds)
+
 	switch layout.Breakpoint {
 	case BreakpointFull:
 		layout.ShowPlayers = true
 		layout.VisibleRounds = allRounds(cfg.Rounds)
-		layout.VisibleCheckpts = append([]int(nil), cfg.Checkpoints...)
+		layout.VisibleCheckpts = append([]int(nil), nonFinalCheckpoints...)
 	case BreakpointNoPlayers:
 		layout.ShowPlayers = false
 		layout.PlayersWidth = 0
 		layout.VisibleRounds = allRounds(cfg.Rounds)
-		layout.VisibleCheckpts = append([]int(nil), cfg.Checkpoints...)
+		layout.VisibleCheckpts = append([]int(nil), nonFinalCheckpoints...)
 		layout.PosWidth = 5
 		layout.RoundWidth = 5
 		layout.CheckptWidth = 5
@@ -131,7 +135,7 @@ func Compute(width, height int, cfg quiz.Config, lastEnteredRound int) Layout {
 		layout.ShowPlayers = false
 		layout.PlayersWidth = 0
 		layout.VisibleRounds = allRounds(cfg.Rounds)
-		layout.VisibleCheckpts = minimalCheckpoints(cfg.Checkpoints, lastEnteredRound)
+		layout.VisibleCheckpts = minimalCheckpoints(nonFinalCheckpoints, lastEnteredRound)
 		layout.PosWidth = 4
 		layout.RoundWidth = 4
 		layout.CheckptWidth = 5
@@ -168,6 +172,20 @@ func allRounds(n int) []int {
 	out := make([]int, n)
 	for i := range n {
 		out[i] = i + 1
+	}
+	return out
+}
+
+// filterNonFinalCheckpoints returns checkpoints minus any entry that
+// equals the final round, since the running total at the final round is
+// already shown in the Total column.
+func filterNonFinalCheckpoints(all []int, rounds int) []int {
+	out := make([]int, 0, len(all))
+	for _, cp := range all {
+		if cp == rounds {
+			continue
+		}
+		out = append(out, cp)
 	}
 	return out
 }

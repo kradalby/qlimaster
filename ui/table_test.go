@@ -10,7 +10,8 @@ import (
 
 // TestAddressableCells verifies the cell sequence in the Full breakpoint
 // includes Position, Team, Players, Round 1..N (with checkpoints
-// interleaved after matching round numbers), and Total.
+// interleaved after matching round numbers), and Total. Checkpoints that
+// land on the final round are filtered out because they duplicate Total.
 func TestAddressableCells_Full(t *testing.T) {
 	t.Parallel()
 
@@ -21,9 +22,10 @@ func TestAddressableCells_Full(t *testing.T) {
 	for i, c := range cells {
 		kinds[i] = c.Kind
 	}
+	// The checkpoint at round 3 is dropped because it equals the total.
 	want := []CellKind{
 		CellPosition, CellTeam, CellPlayers,
-		CellRound, CellRound, CellCheckpoint, CellRound, CellCheckpoint,
+		CellRound, CellRound, CellCheckpoint, CellRound,
 		CellTotal,
 	}
 	assert.Equal(t, want, kinds)

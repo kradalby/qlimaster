@@ -32,9 +32,10 @@ func renderHeader(width int, cfg quiz.Config, teamCount int, dateLabel string) s
 	return lipgloss.JoinVertical(lipgloss.Left, line1, line2, line3)
 }
 
-// middleStats formats the centre region of the stats banner.
+// middleStats formats the centre region of the stats banner. The final
+// round's checkpoint is omitted because it duplicates the Total column.
 func middleStats(cfg quiz.Config) string {
-	cp := formatCheckpoints(cfg.Checkpoints)
+	cp := formatCheckpoints(filterNonFinalCheckpoints(cfg.Checkpoints, cfg.Rounds))
 	main := fmt.Sprintf("%d rounds · %d questions", cfg.Rounds, cfg.QuestionsPerRound)
 	if cp != "" {
 		return main + " · " + cp
@@ -50,7 +51,7 @@ func formatCheckpoints(cps []int) string {
 	for i, c := range cps {
 		parts[i] = "R" + strconv.Itoa(c)
 	}
-	return "halftimes at " + strings.Join(parts, ", ")
+	return "subtotals at " + strings.Join(parts, ", ")
 }
 
 // centerInWidth centers s in width columns, filling the surrounding space
