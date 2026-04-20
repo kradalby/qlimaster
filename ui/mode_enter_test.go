@@ -31,27 +31,27 @@ func TestEnterScoreFlow(t *testing.T) {
 
 	// Press 'e' to open EnterScore.
 	model, _ = model.Update(teaKey("e"))
-	mm := model.(Model)
+	mm, _ := model.(Model)
 	assert.Equal(t, ModeEnterScore, mm.mode)
 	assert.Equal(t, enterStepRound, mm.enter.step)
 
 	// Type round "1" then Enter.
 	model, _ = model.Update(teaKey("1"))
 	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
-	mm = model.(Model)
+	mm, _ = model.(Model)
 	assert.Equal(t, enterStepPick, mm.enter.step)
 	assert.Equal(t, 1, mm.enter.round)
 
 	// Pick the highlighted team (Alpha).
 	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
-	mm = model.(Model)
+	mm, _ = model.(Model)
 	assert.Equal(t, enterStepScore, mm.enter.step)
 
 	// Type "5" and Enter -> score recorded.
 	model, _ = model.Update(teaKey("5"))
 	model, cmd := model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
 	_ = cmd
-	mm = model.(Model)
+	mm, _ = model.(Model)
 	// One team still without a round 1 score, so we should be back at pick.
 	assert.Equal(t, ModeEnterScore, mm.mode)
 	assert.Equal(t, enterStepPick, mm.enter.step)
@@ -60,7 +60,7 @@ func TestEnterScoreFlow(t *testing.T) {
 	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
 	model, _ = model.Update(teaKey("3"))
 	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
-	mm = model.(Model)
+	mm, _ = model.(Model)
 	// All teams scored -> mode returns to Normal.
 	assert.Equal(t, ModeNormal, mm.mode)
 
@@ -91,7 +91,7 @@ func TestEnterScore_InvalidRound(t *testing.T) {
 	model, _ = model.Update(teaKey("9"))
 	model, _ = model.Update(teaKey("9"))
 	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
-	mm := model.(Model)
+	mm, _ := model.(Model)
 	assert.Equal(t, enterStepRound, mm.enter.step)
 	assert.NotEmpty(t, mm.errMsg)
 }
@@ -114,15 +114,15 @@ func TestEnterScore_EscapeUnwinds(t *testing.T) {
 	model, _ = model.Update(teaKey("e"))
 	model, _ = model.Update(teaKey("1"))
 	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
-	mm := model.(Model)
+	mm, _ := model.(Model)
 	assert.Equal(t, enterStepPick, mm.enter.step)
 
 	esc := tea.KeyPressMsg{Code: tea.KeyEscape, Text: ""}
 	model, _ = model.Update(esc)
-	mm = model.(Model)
+	mm, _ = model.(Model)
 	assert.Equal(t, enterStepRound, mm.enter.step)
 
 	model, _ = model.Update(esc)
-	mm = model.(Model)
+	mm, _ = model.(Model)
 	assert.Equal(t, ModeNormal, mm.mode)
 }

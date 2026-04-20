@@ -32,6 +32,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleNormalKey(k, km)
 	case ModeEnterScore:
 		return m.handleEnterKey(k, km)
+	case ModeEditScore:
+		return m.handleEditKey(k, km)
 	default:
 		// Other modes are implemented in later phases. For now, Esc
 		// always returns to Normal so the UI remains usable.
@@ -52,6 +54,8 @@ func (m Model) handleNormalKey(k string, km KeyMap) (tea.Model, tea.Cmd) {
 		m.mode = ModeExport
 	case matches(km.EnterScore, k):
 		return m.startEnterScore(), nil
+	case matches(km.EditScore, k):
+		return m.startEditScore(), nil
 	case matches(km.Up, k):
 		if m.rowCursor > 0 {
 			m.rowCursor--

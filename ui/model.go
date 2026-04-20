@@ -74,6 +74,12 @@ type Model struct {
 	// enter is the ephemeral state for the EnterScore flow.
 	enter enterState
 
+	// editCol is the logical column the edit cursor sits on in
+	// ModeEditScore.
+	editCol int
+	// edit is the ephemeral state for the EditScore flow.
+	edit editState
+
 	// Status/toast line shown in the footer. Cleared by a timer.
 	status       string
 	statusExpiry time.Time
@@ -245,8 +251,21 @@ func (m Model) renderBase() string {
 	layout := Compute(m.width, m.height, m.quiz.Config, m.lastEntered)
 	header := renderHeader(m.width, m.quiz.Config, len(m.quiz.Teams), dateLabel(m.quiz))
 	table := m.renderTable(layout)
-	footer := renderFooter(m.width, m.mode, m.status, m.hints())
+	footer := renderFooter(m.width, m.mode, m.footerStatus(), m.hints())
 	return joinVerticalLines(m.width, m.height, header, table, footer)
+}
+
+// footerStatus returns the text shown next to the mode badge in the
+// footer. It prefers mode-specific state (the edit cursor location, for
+// example), falling back to the generic status toast.
+func (m Model) footerStatus() string {
+	if m.errMsg != "" {
+		return styles.Error.Render("! err: " + m.errMsg)
+	}
+	if m.mode == ModeEditScore {
+		return m.renderEditStatus()
+	}
+	return m.status
 }
 
 // hints returns the contextual keybind helper shown in the footer for the
@@ -269,6 +288,17 @@ func (m Model) hints() []footerHint {
 		return []footerHint{{"?", "dismiss"}}
 	case ModeEnterScore:
 		return []footerHint{{"Enter", "next"}, {"Tab", "skip"}, {"Esc", "back"}}
+	case ModeEditScore:
+		if m.edit.editing {
+			return []footerHint{{"Enter", "save"}, {"Esc", "cancel"}, {"Ctrl+U", "clear"}}
+		}
+		return []footerHint{
+			{"hjkl", "move"},
+			{"Enter", "edit"},
+			{"x", "clear"},
+			{"dd", "delete"},
+			{"Esc", "normal"},
+		}
 	default:
 		return []footerHint{{"Esc", "back"}}
 	}
