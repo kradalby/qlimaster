@@ -36,6 +36,8 @@ linters:
     - forbidigo          # fmt.Print is fine in a CLI entry point
     - mnd                # magic-number detection is too noisy for defaults
     - noinlineerr        # `if err := ...` idiom is preferred here
+    - err113             # prefer concrete %w-wrapped errors where useful
+    - dupword            # false positives in prose comments
 
   settings:
     funlen:
@@ -64,6 +66,7 @@ linters:
         - style
       disabled-checks:
         - unnamedResult
+        - hugeParam    # Quiz values are passed by value for immutability
     tagliatelle:
       case:
         rules:
