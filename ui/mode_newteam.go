@@ -76,7 +76,7 @@ func (m Model) newTeamNameKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
-	if text != "" {
+	if text := sanitizeText(text); text != "" {
 		m.newTeam.name += text
 		m.newTeam.suggestIdx = 0
 	}
@@ -123,7 +123,7 @@ func (m Model) newTeamPlayersKey(k, text string, km KeyMap) (tea.Model, tea.Cmd)
 			m.newTeam.players = m.newTeam.players[:len(m.newTeam.players)-1]
 		}
 	default:
-		if text != "" {
+		if text := sanitizeText(text); text != "" {
 			m.newTeam.players += text
 		}
 	}

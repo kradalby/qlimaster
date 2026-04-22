@@ -146,7 +146,7 @@ func (m Model) enterPickKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 			m.enter.pickIndex = 0
 		}
 	default:
-		if text != "" {
+		if text := sanitizeText(text); text != "" {
 			m.enter.query += text
 			m.enter.pickIndex = 0
 		}

@@ -185,7 +185,7 @@ func (m Model) editCellKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 	case matches(km.Enter, k):
 		return m.commitEdit()
 	default:
-		if text != "" {
+		if text := sanitizeText(text); text != "" {
 			m.edit.input += text
 		}
 	}
