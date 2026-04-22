@@ -60,20 +60,26 @@ func (m Model) handleConfigKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 	case k == keyBackspace:
 		return m.configDelete(), nil
 	}
-	if text != "" {
+	if text := sanitizeText(text); text != "" {
 		return m.configAppend(text), nil
 	}
 	return m, nil
 }
 
+// configAppend extends the focused field with the legal subset of k.
+// Rounds and Questions accept digits only; Checkpoints also accepts
+// comma and whitespace. Anything else (letters, punctuation, and -
+// critically - control characters from leaked terminal escape
+// sequences like cursor position reports) is silently dropped so the
+// user never sees bytes like "[75;1R" land in the form.
 func (m Model) configAppend(k string) Model {
 	switch m.configEdit.focus {
 	case configFieldRounds:
-		m.configEdit.rounds += k
+		m.configEdit.rounds += filterRunes(k, isDigit)
 	case configFieldQuestions:
-		m.configEdit.questions += k
+		m.configEdit.questions += filterRunes(k, isDigit)
 	case configFieldCheckpoints:
-		m.configEdit.checkpoints += k
+		m.configEdit.checkpoints += filterRunes(k, isCheckpointChar)
 	}
 	return m
 }
