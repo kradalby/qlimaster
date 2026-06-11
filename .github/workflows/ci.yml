@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m ./...
+
+  test:
+    name: test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+      - name: go vet
+        run: go vet ./...
+      - name: go test (race + cover)
+        run: go test -race -cover ./...
+      - name: go fuzz (short)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          if [ -d score ]; then
+            go test -run=NONE -fuzz=. -fuzztime=30s ./score || true
+          fi
+
+  nix:
+    name: nix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install nix
+        uses: nixbuild/nix-quick-install-action@v30
+      - name: cache
+        uses: nix-community/cache-nix-action@v5
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/flake.lock', 'flake.nix') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
+      - name: nix flake check
+        run: nix flake check --accept-flake-config
+      - name: nix build
+        run: nix build .#default --accept-flake-config
