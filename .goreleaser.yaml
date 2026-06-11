@@ -1,0 +1,50 @@
+# goreleaser v2 config. Releases are continuous (built from main on every
+# commit, no version tags) - see .github/workflows/release.yml, which runs
+# goreleaser in --snapshot mode and publishes the artifacts to a rolling
+# "continuous" prerelease.
+version: 2
+
+project_name: qlimaster
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: qlimaster
+    main: ./cmd/qlimaster
+    binary: qlimaster
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: qlimaster
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+
+checksum:
+  name_template: checksums.txt
+
+# Non-tag builds derive their version from the latest commit so binaries
+# self-identify (qlimaster version -> e.g. 0.0.0-next-1a2b3c4).
+snapshot:
+  version_template: "{{ incpatch .Version }}-next-{{ .ShortCommit }}"
+
+changelog:
+  disable: true

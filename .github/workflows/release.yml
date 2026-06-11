@@ -1,0 +1,45 @@
+name: release
+
+# Continuous release: every push to main builds binaries and publishes them
+# to a single rolling "continuous" prerelease. No version tags are cut.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: true
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: install nix
+        uses: nixbuild/nix-quick-install-action@v30
+      - name: cache
+        uses: nix-community/cache-nix-action@v5
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/flake.lock', 'flake.nix') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
+      - name: Build binaries
+        # goreleaser (and the Go 1.26 toolchain) come from the flake dev shell.
+        run: nix develop --accept-flake-config --command goreleaser release --clean --snapshot
+      - name: Publish rolling release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: continuous
+          name: Continuous build
+          prerelease: true
+          # Point the continuous tag at the commit being released.
+          target_commitish: ${{ github.sha }}
+          body: "Rolling build from ${{ github.sha }}. Not a stable release."
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/checksums.txt
