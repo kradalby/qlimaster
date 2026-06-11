@@ -1,0 +1,99 @@
+# golangci-lint configuration.
+#
+# Strategy: enable every linter, then opt out of the ones that don't fit this
+# project. Easier to see at a glance what we've chosen NOT to run than to keep
+# a long enable-list in sync.
+
+version: "2"
+
+run:
+  go: "1.26"
+  timeout: 5m
+  tests: true
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+
+linters:
+  default: all
+  disable:
+    - wsl                # superseded by wsl_v5
+    - gochecknoglobals   # package-level lipgloss styles and error sentinels
+    - exhaustruct        # zero-value struct fields are fine
+    - depguard           # meaningless without an allow-list; enable later
+    - cyclop             # redundant with gocyclo + gocognit
+    - ireturn            # we return interfaces from a few helpers (tea.Model)
+    - varnamelen         # revive covers naming; varnamelen is too noisy
+    - mnd                # magic-number detection is too noisy for defaults
+    - noinlineerr        # `if err := ...` idiom is preferred here
+    - dupword            # only false positives ("team a a", "W I N N E R")
+
+  settings:
+    funlen:
+      lines: 120
+      statements: 60
+    gocyclo:
+      min-complexity: 15
+    gocognit:
+      min-complexity: 20
+    nestif:
+      min-complexity: 5
+    revive:
+      rules:
+        - name: exported
+        - name: var-naming
+        - name: package-comments
+        - name: error-return
+        - name: error-strings
+        - name: if-return
+        - name: unused-parameter
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - opinionated
+        - performance
+        - style
+      disabled-checks:
+        - unnamedResult
+        - hugeParam    # Quiz values are passed by value for immutability
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+          hujson: snake
+    testifylint:
+      enable-all: true
+    forbidigo:
+      # fmt.Print* is fine in this CLI; only forbid the bare builtins, which
+      # are almost always leftover debugging.
+      forbid:
+        - pattern: ^print(ln)?$
+    exhaustive:
+      # The project's convention is an explicit default case; treat it as
+      # covering the remaining enum values.
+      default-signifies-exhaustive: true
+    goconst:
+      # Short footer-hint key/action labels ("Esc", "Enter", "next") repeat
+      # across the hint tables by design; deduping them into constants hurts
+      # readability more than it helps.
+      ignore-strings: "^(Esc|Enter|next|cancel)$"
+
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - funlen
+          - gocyclo
+          - gocognit
+          - dupl
+          - gosec
+          - errcheck
+          - wrapcheck
+          - testpackage
+          - goconst        # repeated fixture names are fine in tests
+      - path: cmd/qlimaster/qlimaster\.go
+        linters:
+          - funlen
+          - gocognit

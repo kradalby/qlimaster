@@ -1,0 +1,20 @@
+# Run with prek (https://github.com/j178/prek) or pre-commit.
+# Install the git hook once:  prek install
+repos:
+  - repo: local
+    hooks:
+      - id: golangci-lint
+        name: golangci-lint
+        # Lints and formats (gofumpt/goimports run as v2 formatters), so a
+        # commit that would fail CI is blocked locally.
+        entry: golangci-lint run --fix
+        language: system
+        types: [go]
+        pass_filenames: false
+
+      - id: go-test
+        name: go test
+        entry: go test ./...
+        language: system
+        types: [go]
+        pass_filenames: false
