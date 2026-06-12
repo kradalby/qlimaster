@@ -88,7 +88,8 @@ func (m Model) renderReadOut() string {
 			strconv.Itoa(m.readOut.idx+1)+" / "+strconv.Itoa(len(worstFirst))+" "),
 		m.width, pal.BgHeader))
 
-	card := readOutCard(m.quiz, team, position, isWinner)
+	tieCount := readOutTieCount(m.quiz, team)
+	card := readOutCard(m.quiz, team, position, tieCount, isWinner)
 	cardPlaced := placeCenter(card, m.width, m.height-6)
 
 	hints := []footerHint{
@@ -127,16 +128,34 @@ func readOutOrder(q quiz.Quiz) []quiz.Team {
 	return out
 }
 
+// Helper function that deals with ties
+func readOutTieCount(q quiz.Quiz, t quiz.Team) int {
+	count := 0
+	total := t.Total()
+
+	for _, other := range q.Teams {
+		if other.Total() == total {
+			count++
+		}
+	}
+
+	return count
+}
+
 // readOutCard builds the centered card for one team.
-func readOutCard(q quiz.Quiz, t quiz.Team, position int, isWinner bool) string {
+func readOutCard(q quiz.Quiz, t quiz.Team, position int, tieCount int, isWinner bool) string {
 	titleStyle := styles.OverlayTitle
 	if isWinner {
 		titleStyle = styles.Gold.Bold(true)
 	}
-
-	posLine := titleStyle.Render("Position " + strconv.Itoa(position))
+	
+	posLine := titleStyle.Render(
+    		"Position " + strconv.Itoa(position) + " (" + strconv.Itoa(tieCount) + ")",
+	)
 	if isWinner {
-		posLine = titleStyle.Render("★  POSITION  " + strconv.Itoa(position) + "  ★")
+		posLine = titleStyle.Render(
+    			"★ POSITION " + strconv.Itoa(position) + " (" + strconv.Itoa(tieCount) + ") ★",
+		)
 	}
 
 	nameStyle := lipgloss.NewStyle().Bold(true).Foreground(pal.PinkHot)
