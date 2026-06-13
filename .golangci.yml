@@ -8,7 +8,7 @@ version: "2"
 
 run:
   go: "1.26"
-  timeout: 5m
+  timeout: 20m
   tests: true
 
 formatters:

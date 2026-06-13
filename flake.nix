@@ -4,12 +4,15 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    flake-checks.url = "github:kradalby/flake-checks";
+    flake-checks.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, flake-checks }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
+        fc = flake-checks.lib;
 
         # Require Go 1.26. Fail loudly if nixpkgs does not provide it.
         go = pkgs.go_1_26 or (throw ''
@@ -23,39 +26,35 @@
           else if self ? dirtyRev then (builtins.substring 0 7 self.dirtyRev) + "-dirty"
           else "dev";
 
-        # Use buildGoModule pinned to Go 1.26 so the flake's toolchain
-        # matches go.mod regardless of the default Go in nixpkgs.
-        buildGoModule126 =
-          if pkgs ? buildGo126Module
-          then pkgs.buildGo126Module
-          else pkgs.buildGoModule.override { inherit go; };
-
-        qlimaster = buildGoModule126 {
+        common = {
+          inherit pkgs;
+          root = ./.;
           pname = "qlimaster";
           inherit version;
-          src = ./.;
           # vendorHash is the sha256 of the fetched Go module cache. Bump
           # this after changing go.sum (`nix build` will print the new
           # hash in the error output).
           vendorHash = "sha256-wOrV1/uPP3Nu3J5g7i+7D7oHNzNgPtP8aiZpPJDKjKs=";
-          subPackages = [ "cmd/qlimaster" ];
-          env.CGO_ENABLED = "0";
-          ldflags = [ "-s" "-w" "-X main.version=${version}" ];
-          meta = with pkgs.lib; {
-            description = "Keyboard-driven pub-quiz score manager TUI";
-            mainProgram = "qlimaster";
-            license = licenses.bsd3;
-            platforms = platforms.unix;
-          };
+          goPkg = go;
         };
-      in {
+      in
+      {
         packages = {
-          default = qlimaster;
-          qlimaster = qlimaster;
+          default = fc.goBuild common;
         };
 
         apps.default = flake-utils.lib.mkApp {
-          drv = qlimaster;
+          drv = fc.goBuild common;
+        };
+
+        formatter = fc.formatter common;
+
+        checks = {
+          build = fc.goBuild common;
+          gotest = fc.goTest (common // { goRace = false; });
+          gotest-race = fc.goTest (common // { goRace = true; });
+          golangci-lint = fc.goLint common;
+          formatting = fc.goFormat common;
         };
 
         devShells.default = pkgs.mkShell {
@@ -63,7 +62,7 @@
             go
             gopls
             gotools
-            go-tools          # staticcheck
+            go-tools # staticcheck
             golangci-lint
             delve
             gotestsum
@@ -78,7 +77,5 @@
             echo "  golangci-lint: $(golangci-lint --version 2>/dev/null | head -1)"
           '';
         };
-
-        checks.default = qlimaster;
       });
 }
