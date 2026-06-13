@@ -14,6 +14,7 @@ import (
 // spreadsheet tools can sort and sum them.
 func XLSX(path string, q quiz.Quiz) error {
 	f := excelize.NewFile()
+
 	defer func() { _ = f.Close() }()
 
 	const sheet = "Quiz"

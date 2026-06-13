@@ -41,6 +41,7 @@ func CSVFile(path string, q quiz.Quiz) error {
 	if err != nil {
 		return fmt.Errorf("create %s: %w", path, err)
 	}
+
 	defer func() { _ = f.Close() }()
 
 	return CSV(f, q)
