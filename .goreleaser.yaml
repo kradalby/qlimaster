@@ -44,7 +44,7 @@ checksum:
 # Non-tag builds derive their version from the latest commit so binaries
 # self-identify (qlimaster version -> e.g. 0.0.0-next-1a2b3c4).
 snapshot:
-  version_template: "{{ incpatch .Version }}-next-{{ .ShortCommit }}"
+  version_template: "continuous-{{ .ShortCommit }}"
 
 changelog:
   disable: true
