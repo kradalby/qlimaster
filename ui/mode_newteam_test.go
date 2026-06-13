@@ -17,9 +17,10 @@ func TestNewTeam_AddsTeam(t *testing.T) {
 
 	dir := t.TempDir()
 	m, err := New(Config{
-		Path:       filepath.Join(dir, "quiz.hujson"),
-		QuizConfig: quiz.DefaultConfig(),
-		QuizRoot:   dir,
+		Path:        filepath.Join(dir, "quiz.hujson"),
+		QuizConfig:  quiz.DefaultConfig(),
+		QuizRoot:    dir,
+		HistoryPath: filepath.Join(dir, "history.hujson"),
 	})
 	require.NoError(t, err)
 
@@ -49,9 +50,10 @@ func TestNewTeam_NameWithSpacesPreserved(t *testing.T) {
 
 	dir := t.TempDir()
 	m, err := New(Config{
-		Path:       filepath.Join(dir, "quiz.hujson"),
-		QuizConfig: quiz.DefaultConfig(),
-		QuizRoot:   dir,
+		Path:        filepath.Join(dir, "quiz.hujson"),
+		QuizConfig:  quiz.DefaultConfig(),
+		QuizRoot:    dir,
+		HistoryPath: filepath.Join(dir, "history.hujson"),
 	})
 	require.NoError(t, err)
 
@@ -86,9 +88,10 @@ func TestNewTeam_EmptyNameErrors(t *testing.T) {
 
 	dir := t.TempDir()
 	m, err := New(Config{
-		Path:       filepath.Join(dir, "quiz.hujson"),
-		QuizConfig: quiz.DefaultConfig(),
-		QuizRoot:   dir,
+		Path:        filepath.Join(dir, "quiz.hujson"),
+		QuizConfig:  quiz.DefaultConfig(),
+		QuizRoot:    dir,
+		HistoryPath: filepath.Join(dir, "history.hujson"),
 	})
 	require.NoError(t, err)
 
