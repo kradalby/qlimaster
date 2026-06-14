@@ -211,11 +211,27 @@ func (m Model) editCellKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 		return m.commitEdit()
 	default:
 		if text := sanitizeText(text); text != "" {
+			if keep := m.editCellFilter(); keep != nil {
+				text = filterRunes(text, keep)
+			}
+
 			m.edit.input += text
 		}
 	}
 
 	return m, nil
+}
+
+// editCellFilter returns the legal-rune predicate for the focused cell, or
+// nil for free-text cells (team name, players). Score cells accept only the
+// runes score.Parse understands, so illegal input is dropped at type time
+// rather than buffered and rejected at commit.
+func (m Model) editCellFilter() func(rune) bool {
+	if m.focusedCell.Kind == CellRound {
+		return func(r rune) bool { return isDigit(r) || r == '.' || r == ',' }
+	}
+
+	return nil
 }
 
 // commitEdit applies the pending change through Model.apply, clears the

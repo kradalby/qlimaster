@@ -167,6 +167,63 @@ func TestEditScore_InvalidScoreStaysInEdit(t *testing.T) {
 	assert.NotEmpty(t, mm.errMsg)
 }
 
+// TestEditScore_ScoreCellRejectsLetters confirms a round (score) cell
+// discards alphabetic input at type time rather than buffering it and
+// failing only at commit. Digits and the decimal separators survive.
+func TestEditScore_ScoreCellRejectsLetters(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	m, err := New(Config{
+		Path:       filepath.Join(dir, "quiz.hujson"),
+		QuizConfig: quiz.Config{Rounds: 3, QuestionsPerRound: 10},
+		QuizRoot:   dir,
+	})
+	require.NoError(t, err)
+
+	m, _ = m.apply(quiz.ChangeAddTeam{Name: "Alpha"})
+
+	var model tea.Model = m
+
+	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	model, _ = model.Update(teaKey("i"))
+	model, _ = model.Update(teaKey("l")) // Players
+	model, _ = model.Update(teaKey("l")) // Round 1
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
+
+	model, _ = model.Update(teaKey("a"))
+	model, _ = model.Update(teaKey("5"))
+	model, _ = model.Update(teaKey("z"))
+	model, _ = model.Update(teaKey("."))
+	mm, _ := model.(Model)
+	assert.Equal(t, "5.", mm.edit.input, "letters discarded at type time")
+}
+
+// TestEditScore_NameCellKeepsLetters confirms the rune filter does not
+// leak into free-text cells: a team-name edit still accepts letters.
+func TestEditScore_NameCellKeepsLetters(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	m, err := New(Config{
+		Path:       filepath.Join(dir, "quiz.hujson"),
+		QuizConfig: quiz.Config{Rounds: 3, QuestionsPerRound: 10},
+		QuizRoot:   dir,
+	})
+	require.NoError(t, err)
+
+	m, _ = m.apply(quiz.ChangeAddTeam{Name: "Alpha"})
+
+	var model tea.Model = m
+
+	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	model, _ = model.Update(teaKey("i")) // cursor starts on CellTeam
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
+	model, _ = model.Update(teaKey("X"))
+	mm, _ := model.(Model)
+	assert.Equal(t, "AlphaX", mm.edit.input)
+}
+
 // TestEditScore_DeleteTeam requires two 'd' presses to remove a team.
 func TestEditScore_DeleteTeam(t *testing.T) {
 	t.Parallel()
