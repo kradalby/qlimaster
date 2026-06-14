@@ -56,7 +56,6 @@ func DefaultConfig() Config {
 	return Config{
 		Rounds:            8,
 		QuestionsPerRound: 10,
-		MaxPoints:         20,
 		Checkpoints:       []int{4, 8},
 	}
 }

@@ -69,14 +69,20 @@ func TestApply_SetScoreUnknownTeam(t *testing.T) {
 }
 
 // TestApply_SetScoreHonoursMaxPoints confirms the per-round cap follows
-// Config.MaxPoints, not QuestionsPerRound: with the default 10 questions /
-// 20 points config a score of 20 is accepted and 21 is rejected.
+// Config.MaxPoints, not QuestionsPerRound: with a 10 questions / 20 points
+// config a score of 20 is accepted and 21 is rejected.
 func TestApply_SetScoreHonoursMaxPoints(t *testing.T) {
 	t.Parallel()
 
-	q := withTeams(t, "a")
+	cfg := quiz.DefaultConfig()
+	cfg.MaxPoints = 20
+
+	q := quiz.New(cfg)
+	q, _, err := quiz.Apply(q, quiz.ChangeAddTeam{Name: "a"})
+	require.NoError(t, err)
+
 	teamID := q.Teams[0].ID
-	q, _, err := quiz.Apply(q, quiz.ChangeSetScore{TeamID: teamID, Round: 1, Score: 20})
+	q, _, err = quiz.Apply(q, quiz.ChangeSetScore{TeamID: teamID, Round: 1, Score: 20})
 	require.NoError(t, err)
 
 	v, ok := q.Teams[0].Score(1)
@@ -105,7 +111,7 @@ func TestApply_SetScoreHonoursRoundMaxPoints(t *testing.T) {
 	_, _, err = quiz.Apply(q, quiz.ChangeSetScore{TeamID: teamID, Round: 1, Score: 6})
 	require.ErrorIs(t, err, quiz.ErrInvalidChange)
 
-	// Round 2 has no override and falls back to the quiz-wide MaxScore (20).
+	// Round 2 has no override and falls back to the quiz-wide MaxScore (10).
 	_, _, err = quiz.Apply(q, quiz.ChangeSetScore{TeamID: teamID, Round: 2, Score: 6})
 	require.NoError(t, err)
 }
@@ -137,8 +143,9 @@ func TestApply_PerfectRoundDetection(t *testing.T) {
 	t.Parallel()
 
 	q := withTeams(t, "a", "b")
-	// Give team a a perfect round (max points); team b a normal one.
-	q, res, err := quiz.Apply(q, quiz.ChangeSetScore{TeamID: q.Teams[0].ID, Round: 1, Score: 20})
+	// Give team a a perfect round (max points = questions per round); team b
+	// a normal one.
+	q, res, err := quiz.Apply(q, quiz.ChangeSetScore{TeamID: q.Teams[0].ID, Round: 1, Score: 10})
 	require.NoError(t, err)
 	require.Len(t, res.NewPerfectRounds, 1)
 	assert.Equal(t, q.Teams[0].ID, res.NewPerfectRounds[0].TeamID)
