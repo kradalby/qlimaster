@@ -165,10 +165,10 @@ func (m Model) renderDataRow(l Layout, t quiz.Team, position int, focused bool, 
 	// are applied to ordinary cells and separators individually, rather than
 	// wrapping the whole row afterwards. That prevents ANSI resets from
 	// position/perfect/focus cells from cancelling the zebra or focus stripe.
-	threshold := m.quiz.Config.MaxScore()
 	cells := make([]string, 0, 8)
 
 	rowStyle := lipgloss.NewStyle()
+
 	switch {
 	case focused:
 		rowStyle = styles.RowFocus
@@ -210,7 +210,7 @@ func (m Model) renderDataRow(l Layout, t quiz.Team, position int, focused bool, 
 		}
 
 		raw := cellStyle(padCell(text, l.RoundWidth, alignRight))
-		perfect := ok && v >= threshold
+		perfect := m.perfectScore(v, ok, r)
 
 		roundCell := Cell{Kind: CellRound, Round: r}
 		if perfect && !focusCell.Equal(roundCell) {
@@ -243,6 +243,14 @@ func (m Model) renderDataRow(l Layout, t quiz.Team, position int, focused bool, 
 	}
 
 	return line
+}
+
+// perfectScore reports whether a recorded score reaches its round's cap and
+// should get the perfect-round highlight. The cap is per round
+// (MaxScoreForRound), so a bonus round with a higher RoundMaxPoints override
+// only lights up at its own maximum rather than the quiz-wide one.
+func (m Model) perfectScore(v float64, ok bool, round int) bool {
+	return ok && v >= m.quiz.Config.MaxScoreForRound(round)
 }
 
 // decorateFocus returns the given pre-padded cell string, optionally

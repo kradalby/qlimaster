@@ -66,3 +66,28 @@ func TestTableRendersTeamName(t *testing.T) {
 	require.NotEmpty(t, out)
 	assert.Contains(t, out, "The rookies")
 }
+
+// TestPerfectScoreRespectsRoundCap confirms the perfect-round highlight is
+// judged against each round's own cap, so a bonus round (higher
+// RoundMaxPoints) only lights up at its true maximum.
+func TestPerfectScoreRespectsRoundCap(t *testing.T) {
+	t.Parallel()
+
+	m := Model{
+		quiz: quiz.Quiz{
+			Config: quiz.Config{
+				Rounds: 3, QuestionsPerRound: 10,
+				RoundMaxPoints: map[string]int{"3": 11},
+			},
+		},
+	}
+
+	// Normal round (cap = quiz-wide MaxScore 10) is perfect at 10.
+	assert.True(t, m.perfectScore(10, true, 1))
+	// Round 3 is capped at 11: a 10 is below the cap, so not perfect...
+	assert.False(t, m.perfectScore(10, true, 3))
+	// ...but a true 11 hits the cap.
+	assert.True(t, m.perfectScore(11, true, 3))
+	// A blank cell (ok=false) is never perfect.
+	assert.False(t, m.perfectScore(0, false, 1))
+}

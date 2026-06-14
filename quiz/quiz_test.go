@@ -44,6 +44,37 @@ func TestConfig_Validate(t *testing.T) {
 	}
 }
 
+func TestConfig_ValidateRoundMaxPoints(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		rmp     map[string]int
+		wantErr bool
+	}{
+		{"valid", map[string]int{"3": 11, "7": 12}, false},
+		{"key zero", map[string]int{"0": 11}, true},
+		{"key above rounds", map[string]int{"9": 11}, true},
+		{"key not int", map[string]int{"x": 11}, true},
+		{"value zero", map[string]int{"3": 0}, true},
+		{"value too high", map[string]int{"3": 1001}, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := quiz.Config{Rounds: 8, QuestionsPerRound: 10, RoundMaxPoints: tc.rmp}
+
+			err := cfg.Validate()
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestConfig_MaxScore(t *testing.T) {
 	t.Parallel()
 
@@ -51,6 +82,18 @@ func TestConfig_MaxScore(t *testing.T) {
 	assert.InDelta(t, 20.0, quiz.Config{QuestionsPerRound: 10, MaxPoints: 20}.MaxScore(), 1e-9)
 	// Zero MaxPoints falls back to QuestionsPerRound (legacy files).
 	assert.InDelta(t, 10.0, quiz.Config{QuestionsPerRound: 10, MaxPoints: 0}.MaxScore(), 1e-9)
+}
+
+func TestConfig_MaxScoreForRound(t *testing.T) {
+	t.Parallel()
+
+	cfg := quiz.Config{QuestionsPerRound: 10, MaxPoints: 20, RoundMaxPoints: map[string]int{"3": 11}}
+	// Round with an explicit override returns it.
+	assert.InDelta(t, 11.0, cfg.MaxScoreForRound(3), 1e-9)
+	// Round without an override falls back to the quiz-wide MaxScore.
+	assert.InDelta(t, 20.0, cfg.MaxScoreForRound(1), 1e-9)
+	// A nil override map falls back to MaxScore for every round.
+	assert.InDelta(t, 20.0, quiz.Config{QuestionsPerRound: 10, MaxPoints: 20}.MaxScoreForRound(3), 1e-9)
 }
 
 func TestNew(t *testing.T) {

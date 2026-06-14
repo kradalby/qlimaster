@@ -86,11 +86,6 @@ func (m Model) handleConfigKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 // sequences like cursor position reports) is silently dropped so the
 // user never sees bytes like "[75;1R" land in the form.
 func (m Model) configAppend(k string) Model {
-	k = stripTerminalNoise(k)
-	if k == "" {
-		return m
-	}
-
 	switch m.configEdit.focus {
 	case configFieldRounds:
 		m.configEdit.rounds += filterRunes(k, isDigit)
@@ -107,29 +102,6 @@ func (m Model) configAppend(k string) Model {
 	}
 
 	return m
-}
-
-func stripTerminalNoise(s string) string {
-	var b strings.Builder
-
-	for i := 0; i < len(s); i++ {
-		if s[i] == '[' {
-			j := i + 1
-			for j < len(s) && (s[j] >= '0' && s[j] <= '9' || s[j] == ';') {
-				j++
-			}
-			if j < len(s) && ((s[j] >= 'A' && s[j] <= 'Z') || (s[j] >= 'a' && s[j] <= 'z')) {
-				i = j
-				continue
-			}
-		}
-
-		if s[i] >= 32 && s[i] != 127 {
-			b.WriteByte(s[i])
-		}
-	}
-
-	return b.String()
 }
 
 func (m Model) configDelete() Model {
@@ -193,6 +165,7 @@ func (m Model) submitConfig() (tea.Model, tea.Cmd) {
 	roundMaxPoints, err := parseRoundMaxPoints(m.configEdit.roundPoints)
 	if err != nil {
 		m.errMsg = err.Error()
+
 		return m, nil
 	}
 
@@ -255,13 +228,12 @@ func isRoundMaxPointChar(r rune) bool {
 func parseRoundMaxPoints(s string) (map[string]int, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
-		return nil, nil
+		return nil, nil //nolint:nilnil // empty input means no per-round overrides
 	}
 
 	out := map[string]int{}
-	parts := strings.Split(s, ",")
 
-	for _, p := range parts {
+	for p := range strings.SplitSeq(s, ",") {
 		p = strings.TrimSpace(p)
 		if p == "" {
 			continue
@@ -277,12 +249,12 @@ func parseRoundMaxPoints(s string) (map[string]int, error) {
 			return nil, badIntError{value: pair[0]}
 		}
 
-		max, err := strconv.Atoi(strings.TrimSpace(pair[1]))
+		pts, err := strconv.Atoi(strings.TrimSpace(pair[1]))
 		if err != nil {
 			return nil, badIntError{value: pair[1]}
 		}
 
-		out[strconv.Itoa(round)] = max
+		out[strconv.Itoa(round)] = pts
 	}
 
 	return out, nil

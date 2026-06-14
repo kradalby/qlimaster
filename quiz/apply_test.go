@@ -87,6 +87,29 @@ func TestApply_SetScoreHonoursMaxPoints(t *testing.T) {
 	require.ErrorIs(t, err, quiz.ErrInvalidChange)
 }
 
+func TestApply_SetScoreHonoursRoundMaxPoints(t *testing.T) {
+	t.Parallel()
+
+	cfg := quiz.DefaultConfig()
+	cfg.RoundMaxPoints = map[string]int{"1": 5}
+
+	q := quiz.New(cfg)
+	q, _, err := quiz.Apply(q, quiz.ChangeAddTeam{Name: "a"})
+	require.NoError(t, err)
+
+	teamID := q.Teams[0].ID
+
+	// Round 1 is capped at 5 by the override.
+	q, _, err = quiz.Apply(q, quiz.ChangeSetScore{TeamID: teamID, Round: 1, Score: 5})
+	require.NoError(t, err)
+	_, _, err = quiz.Apply(q, quiz.ChangeSetScore{TeamID: teamID, Round: 1, Score: 6})
+	require.ErrorIs(t, err, quiz.ErrInvalidChange)
+
+	// Round 2 has no override and falls back to the quiz-wide MaxScore (20).
+	_, _, err = quiz.Apply(q, quiz.ChangeSetScore{TeamID: teamID, Round: 2, Score: 6})
+	require.NoError(t, err)
+}
+
 func TestApply_SetScoreInvalidRound(t *testing.T) {
 	t.Parallel()
 

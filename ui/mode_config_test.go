@@ -42,6 +42,8 @@ func TestConfig_UpdatesQuiz(t *testing.T) {
 	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
 	// Tab past max points, keep.
 	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
+	// Tab past round max points, keep.
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
 	// Tab to checkpoints, replace with "3,6".
 	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
 	for range 3 {
@@ -200,7 +202,9 @@ func TestConfig_CheckpointsAllowsCommaAndSpace(t *testing.T) {
 
 	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
 	model, _ = model.Update(teaKey(":"))
-	// Tab past Rounds, Questions and Max points to land on Checkpoints.
+	// Tab past Rounds, Questions, Max points and Round max points to land
+	// on Checkpoints.
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
 	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
 	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
 	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
@@ -215,4 +219,87 @@ func TestConfig_CheckpointsAllowsCommaAndSpace(t *testing.T) {
 	model, _ = model.Update(payload)
 	mm, _ := model.(Model)
 	assert.Equal(t, "2, 5,9", mm.configEdit.checkpoints)
+}
+
+func TestParseRoundMaxPoints(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		in      string
+		want    map[string]int
+		wantErr bool
+	}{
+		{"empty", "", nil, false},
+		{"whitespace only", "   ", nil, false},
+		{"single", "3:11", map[string]int{"3": 11}, false},
+		{"multiple", "3:11,7:12", map[string]int{"3": 11, "7": 12}, false},
+		{"whitespace around", " 3 : 11 , 7:12 ", map[string]int{"3": 11, "7": 12}, false},
+		{"trailing comma", "3:11,", map[string]int{"3": 11}, false},
+		{"duplicate last wins", "3:11,3:12", map[string]int{"3": 12}, false},
+		{"missing colon", "3-11", nil, true},
+		{"non-int round", "x:11", nil, true},
+		{"non-int value", "3:y", nil, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := parseRoundMaxPoints(tc.in)
+			if tc.wantErr {
+				require.Error(t, err)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestFormatRoundMaxPoints(t *testing.T) {
+	t.Parallel()
+
+	assert.Empty(t, formatRoundMaxPoints(nil))
+	// Keys are emitted in ascending numeric order regardless of map order.
+	assert.Equal(t, "1:10,2:20", formatRoundMaxPoints(map[string]int{"2": 20, "1": 10}))
+
+	// Format then parse round-trips to the original map.
+	in := map[string]int{"3": 11, "7": 12}
+	got, err := parseRoundMaxPoints(formatRoundMaxPoints(in))
+	require.NoError(t, err)
+	assert.Equal(t, in, got)
+}
+
+// TestConfig_RoundMaxPointsRoundtrip types a per-round override into the
+// config overlay and confirms it lands on the quiz config.
+func TestConfig_RoundMaxPointsRoundtrip(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	m, err := New(Config{
+		Path:       filepath.Join(dir, "quiz.hujson"),
+		QuizConfig: quiz.DefaultConfig(),
+		QuizRoot:   dir,
+	})
+	require.NoError(t, err)
+
+	var model tea.Model = m
+
+	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	model, _ = model.Update(teaKey(":"))
+	// Tab past Rounds, Questions and Max points to land on Round max points.
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
+
+	for _, k := range []string{"3", ":", "1", "1"} {
+		model, _ = model.Update(teaKey(k))
+	}
+
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
+	mm, _ := model.(Model)
+	assert.Equal(t, ModeNormal, mm.mode)
+	assert.Equal(t, 11, mm.quiz.Config.RoundMaxPoints["3"])
 }

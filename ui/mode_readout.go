@@ -128,7 +128,9 @@ func readOutOrder(q quiz.Quiz) []quiz.Team {
 	return out
 }
 
-// Helper function that deals with ties
+// readOutTieCount returns how many teams (including t itself) share t's
+// total score. A return of 1 means no tie; >1 means that many teams are
+// level. The exact == comparison matches quiz.Rank's tie grouping.
 func readOutTieCount(q quiz.Quiz, t quiz.Team) int {
 	count := 0
 	total := t.Total()
@@ -143,19 +145,22 @@ func readOutTieCount(q quiz.Quiz, t quiz.Team) int {
 }
 
 // readOutCard builds the centered card for one team.
-func readOutCard(q quiz.Quiz, t quiz.Team, position int, tieCount int, isWinner bool) string {
+func readOutCard(q quiz.Quiz, t quiz.Team, position, tieCount int, isWinner bool) string {
 	titleStyle := styles.OverlayTitle
 	if isWinner {
 		titleStyle = styles.Gold.Bold(true)
 	}
 
-	posLine := titleStyle.Render(
-		"Position " + strconv.Itoa(position) + " (" + strconv.Itoa(tieCount) + ")",
-	)
+	// Only surface the count when teams are actually tied; "(1)" on every
+	// card is just noise.
+	tie := ""
+	if tieCount > 1 {
+		tie = " (" + strconv.Itoa(tieCount) + ")"
+	}
+
+	posLine := titleStyle.Render("Position " + strconv.Itoa(position) + tie)
 	if isWinner {
-		posLine = titleStyle.Render(
-			"★ POSITION " + strconv.Itoa(position) + " (" + strconv.Itoa(tieCount) + ") ★",
-		)
+		posLine = titleStyle.Render("★ POSITION " + strconv.Itoa(position) + tie + " ★")
 	}
 
 	nameStyle := lipgloss.NewStyle().Bold(true).Foreground(pal.PinkHot)

@@ -85,3 +85,25 @@ func TestReadOutOrder(t *testing.T) {
 	assert.Equal(t, "Gamma", order[1].Name)
 	assert.Equal(t, "Beta", order[2].Name)
 }
+
+// TestReadOutTieCount confirms the count includes the team itself and
+// reports 1 when a team's total is unique.
+func TestReadOutTieCount(t *testing.T) {
+	t.Parallel()
+
+	q := quiz.Quiz{
+		Version: 1,
+		Config:  quiz.Config{Rounds: 1, QuestionsPerRound: 10},
+		Teams: []quiz.Team{
+			{ID: "a", Name: "Alpha", Scores: map[string]float64{"1": 5}},
+			{ID: "b", Name: "Beta", Scores: map[string]float64{"1": 5}},
+			{ID: "c", Name: "Gamma", Scores: map[string]float64{"1": 7}},
+		},
+	}
+
+	// Alpha and Beta are level at 5 -> 2 each (self included).
+	assert.Equal(t, 2, readOutTieCount(q, q.Teams[0]))
+	assert.Equal(t, 2, readOutTieCount(q, q.Teams[1]))
+	// Gamma is alone at 7 -> 1.
+	assert.Equal(t, 1, readOutTieCount(q, q.Teams[2]))
+}
