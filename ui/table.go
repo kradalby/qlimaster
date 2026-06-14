@@ -186,18 +186,19 @@ func (m Model) renderDataRow(l Layout, t quiz.Team, position int, focused bool, 
 		posText = "★ " + posText
 	}
 
-	posCell := positionStyle(position).Inherit(rowStyle).Render(padCell(posText, l.PosWidth, alignRight))
-	cells = append(cells, decorateFocus(posCell, l.PosWidth, alignRight, focusCell,
+	posPlain := padCell(posText, l.PosWidth, alignRight)
+	posCell := positionStyle(position).Inherit(rowStyle).Render(posPlain)
+	cells = append(cells, decorateFocus(posCell, posPlain, l.PosWidth, alignRight, focusCell,
 		Cell{Kind: CellPosition}, m.edit, false))
 
 	// Team name.
-	teamRaw := cellStyle(padCell(truncate(t.Name, l.TeamWidth), l.TeamWidth, alignLeft))
-	cells = append(cells, decorateFocus(teamRaw, l.TeamWidth, alignLeft, focusCell,
+	teamPlain := padCell(truncate(t.Name, l.TeamWidth), l.TeamWidth, alignLeft)
+	cells = append(cells, decorateFocus(cellStyle(teamPlain), teamPlain, l.TeamWidth, alignLeft, focusCell,
 		Cell{Kind: CellTeam}, m.edit, true))
 
 	if l.ShowPlayers {
-		playersRaw := cellStyle(padCell(truncate(t.Players, l.PlayersWidth), l.PlayersWidth, alignLeft))
-		cells = append(cells, decorateFocus(playersRaw, l.PlayersWidth, alignLeft, focusCell,
+		playersPlain := padCell(truncate(t.Players, l.PlayersWidth), l.PlayersWidth, alignLeft)
+		cells = append(cells, decorateFocus(cellStyle(playersPlain), playersPlain, l.PlayersWidth, alignLeft, focusCell,
 			Cell{Kind: CellPlayers}, m.edit, true))
 	}
 
@@ -209,26 +210,27 @@ func (m Model) renderDataRow(l Layout, t quiz.Team, position int, focused bool, 
 			text = score.Format(v)
 		}
 
-		raw := cellStyle(padCell(text, l.RoundWidth, alignRight))
+		plain := padCell(text, l.RoundWidth, alignRight)
+		raw := cellStyle(plain)
 		perfect := m.perfectScore(v, ok, r)
 
 		roundCell := Cell{Kind: CellRound, Round: r}
 		if perfect && !focusCell.Equal(roundCell) {
-			raw = styles.Perfect.Render(padCell(text, l.RoundWidth, alignRight))
+			raw = styles.Perfect.Render(plain)
 		}
 
-		cells = append(cells, decorateFocus(raw, l.RoundWidth, alignRight, focusCell,
+		cells = append(cells, decorateFocus(raw, plain, l.RoundWidth, alignRight, focusCell,
 			roundCell, m.edit, true))
 
 		if slices.Contains(l.VisibleCheckpts, r) {
-			cpRaw := cellStyle(padCell(score.Format(quiz.Checkpoint(t, r)), l.CheckptWidth, alignRight))
-			cells = append(cells, decorateFocus(cpRaw, l.CheckptWidth, alignRight, focusCell,
+			cpPlain := padCell(score.Format(quiz.Checkpoint(t, r)), l.CheckptWidth, alignRight)
+			cells = append(cells, decorateFocus(cellStyle(cpPlain), cpPlain, l.CheckptWidth, alignRight, focusCell,
 				Cell{Kind: CellCheckpoint, Round: r}, m.edit, false))
 		}
 	}
 
-	totalRaw := cellStyle(padCell(score.Format(t.Total()), l.TotalWidth, alignRight))
-	cells = append(cells, decorateFocus(totalRaw, l.TotalWidth, alignRight, focusCell,
+	totalPlain := padCell(score.Format(t.Total()), l.TotalWidth, alignRight)
+	cells = append(cells, decorateFocus(cellStyle(totalPlain), totalPlain, l.TotalWidth, alignRight, focusCell,
 		Cell{Kind: CellTotal}, m.edit, false))
 
 	sep := rowStyle.Render(" │ ")
@@ -253,11 +255,13 @@ func (m Model) perfectScore(v float64, ok bool, round int) bool {
 	return ok && v >= m.quiz.Config.MaxScoreForRound(round)
 }
 
-// decorateFocus returns the given pre-padded cell string, optionally
-// replaced by the focus/edit highlight when the cell matches focusCell.
-// The editing buffer is rendered in-place when edit.editing is true and
-// the cell is editable.
-func decorateFocus(raw string, width, align int, focusCell, myCell Cell, es editState, editable bool) string {
+// decorateFocus returns the normally-styled cell string, or the
+// focus/edit highlight when the cell matches focusCell. The highlight is
+// rendered over the unstyled plain text (not the row-painted raw) so the
+// CellFocus/CellEditing background fully replaces the row's zebra/focus
+// background instead of being clobbered by it. The editing buffer is
+// rendered in-place when edit.editing is true and the cell is editable.
+func decorateFocus(raw, plain string, width, align int, focusCell, myCell Cell, es editState, editable bool) string {
 	if !focusCell.Equal(myCell) {
 		return raw
 	}
@@ -269,7 +273,7 @@ func decorateFocus(raw string, width, align int, focusCell, myCell Cell, es edit
 		return styles.CellEditing.Render(padded)
 	}
 
-	return styles.CellFocus.Render(raw)
+	return styles.CellFocus.Render(plain)
 }
 
 // positionStyle returns the lipgloss style for the given position. Gold

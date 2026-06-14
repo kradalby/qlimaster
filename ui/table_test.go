@@ -3,10 +3,36 @@ package ui
 import (
 	"testing"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/kradalby/qlimaster/quiz"
+	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// TestDecorateFocus_HighlightSurvivesRowBackground guards the edit-mode
+// focus marker: the CellFocus highlight must be painted over the plain
+// cell text, not the row-background-painted version, otherwise the row's
+// zebra/focus background clobbers the marker and the user can't see which
+// cell they are about to edit.
+//
+//nolint:paralleltest // mutates the global lipgloss color profile
+func TestDecorateFocus_HighlightSurvivesRowBackground(t *testing.T) {
+	// Force a color profile so lipgloss emits ANSI off-TTY; the global
+	// default renderer is shared, so don't run this in parallel.
+	lipgloss.SetColorProfile(termenv.TrueColor)
+
+	plain := padCell("5", 4, alignRight)
+	rowPainted := styles.RowFocus.Render(plain)
+
+	cell := Cell{Kind: CellRound, Round: 1}
+	got := decorateFocus(rowPainted, plain, 4, alignRight, cell, cell, editState{}, true)
+
+	assert.Equal(t, styles.CellFocus.Render(plain), got,
+		"focus highlight must wrap the plain text")
+	assert.NotEqual(t, styles.CellFocus.Render(rowPainted), got,
+		"focus highlight must not wrap the row-painted text (background would clobber it)")
+}
 
 // TestAddressableCells verifies the cell sequence in the Full breakpoint
 // includes Position, Team, Players, Round 1..N (with checkpoints
