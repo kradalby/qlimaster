@@ -237,7 +237,7 @@ func (m Model) commitEdit() (tea.Model, tea.Cmd) {
 	case CellPlayers:
 		change = quiz.ChangeSetPlayers{TeamID: teamID, Players: m.edit.input}
 	case CellRound:
-		v, err := score.Parse(m.edit.input, m.quiz.Config.MaxScore())
+		v, err := score.Parse(m.edit.input, m.quiz.Config.MaxScoreForRound(m.focusedCell.Round))
 		if err != nil {
 			m.errMsg = err.Error()
 

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -16,6 +17,7 @@ const (
 	configFieldRounds configField = iota
 	configFieldQuestions
 	configFieldPoints
+	configFieldRoundPoints
 	configFieldCheckpoints
 	configFieldCount
 )
@@ -27,6 +29,7 @@ type configState struct {
 	questions   string
 	points      string
 	checkpoints string
+	roundPoints string
 }
 
 // startConfig seeds the overlay with the current config values and opens
@@ -38,6 +41,7 @@ func (m Model) startConfig() Model {
 		rounds:      strconv.Itoa(m.quiz.Config.Rounds),
 		questions:   strconv.Itoa(m.quiz.Config.QuestionsPerRound),
 		points:      strconv.Itoa(int(m.quiz.Config.MaxScore())),
+		roundPoints: formatRoundMaxPoints(m.quiz.Config.RoundMaxPoints),
 		checkpoints: joinInts(m.quiz.Config.Checkpoints),
 	}
 	m.errMsg = ""
@@ -82,6 +86,11 @@ func (m Model) handleConfigKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 // sequences like cursor position reports) is silently dropped so the
 // user never sees bytes like "[75;1R" land in the form.
 func (m Model) configAppend(k string) Model {
+	k = stripTerminalNoise(k)
+	if k == "" {
+		return m
+	}
+
 	switch m.configEdit.focus {
 	case configFieldRounds:
 		m.configEdit.rounds += filterRunes(k, isDigit)
@@ -91,11 +100,36 @@ func (m Model) configAppend(k string) Model {
 		m.configEdit.points += filterRunes(k, isDigit)
 	case configFieldCheckpoints:
 		m.configEdit.checkpoints += filterRunes(k, isCheckpointChar)
+	case configFieldRoundPoints:
+		m.configEdit.roundPoints += filterRunes(k, isRoundMaxPointChar)
 	default:
 		// configFieldCount is a sentinel, never a real focus value.
 	}
 
 	return m
+}
+
+func stripTerminalNoise(s string) string {
+	var b strings.Builder
+
+	for i := 0; i < len(s); i++ {
+		if s[i] == '[' {
+			j := i + 1
+			for j < len(s) && (s[j] >= '0' && s[j] <= '9' || s[j] == ';') {
+				j++
+			}
+			if j < len(s) && ((s[j] >= 'A' && s[j] <= 'Z') || (s[j] >= 'a' && s[j] <= 'z')) {
+				i = j
+				continue
+			}
+		}
+
+		if s[i] >= 32 && s[i] != 127 {
+			b.WriteByte(s[i])
+		}
+	}
+
+	return b.String()
 }
 
 func (m Model) configDelete() Model {
@@ -115,6 +149,10 @@ func (m Model) configDelete() Model {
 	case configFieldCheckpoints:
 		if m.configEdit.checkpoints != "" {
 			m.configEdit.checkpoints = m.configEdit.checkpoints[:len(m.configEdit.checkpoints)-1]
+		}
+	case configFieldRoundPoints:
+		if m.configEdit.roundPoints != "" {
+			m.configEdit.roundPoints = m.configEdit.roundPoints[:len(m.configEdit.roundPoints)-1]
 		}
 	default:
 		// configFieldCount is a sentinel, never a real focus value.
@@ -152,10 +190,17 @@ func (m Model) submitConfig() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	roundMaxPoints, err := parseRoundMaxPoints(m.configEdit.roundPoints)
+	if err != nil {
+		m.errMsg = err.Error()
+		return m, nil
+	}
+
 	newCfg := quiz.Config{
 		Rounds:            rounds,
 		QuestionsPerRound: questions,
 		MaxPoints:         points,
+		RoundMaxPoints:    roundMaxPoints,
 		Checkpoints:       cps,
 	}
 	if err := newCfg.Validate(); err != nil {
@@ -203,6 +248,70 @@ func parseIntList(s string) ([]int, error) {
 	return out, nil
 }
 
+func isRoundMaxPointChar(r rune) bool {
+	return isDigit(r) || r == ':' || r == ',' || r == ' '
+}
+
+func parseRoundMaxPoints(s string) (map[string]int, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil, nil
+	}
+
+	out := map[string]int{}
+	parts := strings.Split(s, ",")
+
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+
+		pair := strings.Split(p, ":")
+		if len(pair) != 2 {
+			return nil, badIntError{value: p}
+		}
+
+		round, err := strconv.Atoi(strings.TrimSpace(pair[0]))
+		if err != nil {
+			return nil, badIntError{value: pair[0]}
+		}
+
+		max, err := strconv.Atoi(strings.TrimSpace(pair[1]))
+		if err != nil {
+			return nil, badIntError{value: pair[1]}
+		}
+
+		out[strconv.Itoa(round)] = max
+	}
+
+	return out, nil
+}
+
+func formatRoundMaxPoints(xs map[string]int) string {
+	if len(xs) == 0 {
+		return ""
+	}
+
+	keys := make([]int, 0, len(xs))
+	for k := range xs {
+		v, err := strconv.Atoi(k)
+		if err == nil {
+			keys = append(keys, v)
+		}
+	}
+
+	slices.Sort(keys)
+
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		parts = append(parts,
+			strconv.Itoa(k)+":"+strconv.Itoa(xs[strconv.Itoa(k)]))
+	}
+
+	return strings.Join(parts, ",")
+}
+
 // errBadIntValue returns an error describing a non-integer in a comma
 // list.
 func errBadIntValue(s string) error {
@@ -236,6 +345,7 @@ func (m Model) renderConfig() string {
 		{"Rounds:             ", m.configEdit.rounds, configFieldRounds},
 		{"Questions per round:", m.configEdit.questions, configFieldQuestions},
 		{"Max points/round:   ", m.configEdit.points, configFieldPoints},
+		{"Round max points:  ", m.configEdit.roundPoints, configFieldRoundPoints},
 		{"Checkpoints:        ", m.configEdit.checkpoints, configFieldCheckpoints},
 	}
 	lines := []string{title, ""}

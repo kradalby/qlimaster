@@ -18,8 +18,9 @@ import (
 // round, and which rounds should show a cumulative-total checkpoint
 // column).
 type Config struct {
-	Rounds            int `hujson:"rounds"              json:"rounds"`
-	QuestionsPerRound int `hujson:"questions_per_round" json:"questions_per_round"`
+	Rounds            int            `hujson:"rounds"              json:"rounds"`
+	QuestionsPerRound int            `hujson:"questions_per_round" json:"questions_per_round"`
+	RoundMaxPoints    map[string]int `hujson:"round_max_points" json:"round_max_points"`
 	// MaxPoints is the highest score a team may be awarded in one round,
 	// decoupled from QuestionsPerRound so a round can be worth more points
 	// than it has questions (e.g. 10 questions at 2 points each). A zero
@@ -37,6 +38,17 @@ func (c Config) MaxScore() float64 {
 	}
 
 	return float64(c.QuestionsPerRound)
+}
+
+// MaxScoreForRound returns a round-specific score cap when configured,
+// otherwise it falls back to the quiz-wide MaxScore.
+func (c Config) MaxScoreForRound(round int) float64 {
+	if c.RoundMaxPoints != nil {
+		if max, ok := c.RoundMaxPoints[strconv.Itoa(round)]; ok && max > 0 {
+			return float64(max)
+		}
+	}
+	return c.MaxScore()
 }
 
 // DefaultConfig returns the standard Grandcafe de Burcht setup: 8 rounds of
@@ -66,6 +78,15 @@ func (c Config) Validate() error {
 	// explicit value must be positive and not absurdly large.
 	if c.MaxPoints < 0 || c.MaxPoints > 1000 {
 		return fmt.Errorf("%w: max_points %d not in [0, 1000]", ErrInvalidConfig, c.MaxPoints)
+	}
+	for k, max := range c.RoundMaxPoints {
+		r, err := strconv.Atoi(k)
+		if err != nil || r < 1 || r > c.Rounds {
+			return fmt.Errorf("%w: round_max_points key %q not in [1, %d]", ErrInvalidConfig, k, c.Rounds)
+		}
+		if max < 1 || max > 1000 {
+			return fmt.Errorf("%w: round_max_points[%s] %d not in [1, 1000]", ErrInvalidConfig, k, max)
+		}
 	}
 
 	prev := 0

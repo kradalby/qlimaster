@@ -181,15 +181,15 @@ func (m Model) enterScoreKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 			m.enter.input = m.enter.input[:len(m.enter.input)-1]
 		}
 	case matches(km.Enter, k):
-		v, err := score.Parse(m.enter.input, m.quiz.Config.MaxScore())
+		teamID := m.enter.pickID
+		round := m.enter.round
+
+		v, err := score.Parse(m.enter.input, m.quiz.Config.MaxScoreForRound(round))
 		if err != nil {
 			m.errMsg = err.Error()
 
 			return m, nil
 		}
-
-		teamID := m.enter.pickID
-		round := m.enter.round
 
 		m, cmd := m.apply(quiz.ChangeSetScore{TeamID: teamID, Round: round, Score: v})
 		if m.errMsg != "" {

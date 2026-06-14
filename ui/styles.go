@@ -45,7 +45,7 @@ var pal = palette{
 	BgHeader:    lipgloss.AdaptiveColor{Light: "#ffe6f0", Dark: "#2a0a1e"},
 	BgFooter:    lipgloss.AdaptiveColor{Light: "#ffd1e6", Dark: "#1a0612"},
 	BgSelect:    lipgloss.AdaptiveColor{Light: "#ffb4d6", Dark: "#5a1a3c"},
-	BgZebra:     lipgloss.AdaptiveColor{Light: "#fff5f9", Dark: "#1a0a14"},
+	BgZebra:     lipgloss.AdaptiveColor{Light: "#ffeaf3", Dark: "#261020"},
 	BgAvg:       lipgloss.AdaptiveColor{Light: "#ffe6f0", Dark: "#3a0a24"},
 	BgHeaderRow: lipgloss.AdaptiveColor{Light: "#ffd1e6", Dark: "#2a0a1e"},
 }

@@ -154,7 +154,7 @@ func applySetScore(q *Quiz, c ChangeSetScore) error {
 	// Revalidate the score against the current config; Parse is the
 	// authoritative validator and rejecting here keeps the data file clean
 	// even if the UI misbehaved.
-	if _, err := score.Parse(score.Format(c.Score), q.Config.MaxScore()); err != nil {
+	if _, err := score.Parse(score.Format(c.Score), q.Config.MaxScoreForRound(c.Round)); err != nil {
 		return fmt.Errorf("%w: %w", ErrInvalidChange, err)
 	}
 

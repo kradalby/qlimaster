@@ -116,7 +116,7 @@ func (m Model) renderBodyRows(l Layout) string {
 
 		lines = append(lines,
 			m.renderDataRow(l, sorted[i], ranking.PositionOf(sorted[i].ID),
-				i == m.rowCursor, i-start, focusedCell))
+				i == m.rowCursor, i, focusedCell))
 	}
 
 	for len(lines) < l.TableHeight {
@@ -161,12 +161,24 @@ func (m Model) renderAveragesRow(l Layout) string {
 }
 
 func (m Model) renderDataRow(l Layout, t quiz.Team, position int, focused bool, visibleIdx int, focusCell Cell) string {
-	// Build one styled cell per addressable column, in order. The
-	// per-cell styling (perfect-round fill, focus highlight, editing
-	// buffer) is composed here so the later row-level styling (zebra /
-	// row focus) doesn't clobber per-cell backgrounds.
+	// Build one styled cell per addressable column, in order. Row backgrounds
+	// are applied to ordinary cells and separators individually, rather than
+	// wrapping the whole row afterwards. That prevents ANSI resets from
+	// position/perfect/focus cells from cancelling the zebra or focus stripe.
 	threshold := m.quiz.Config.MaxScore()
 	cells := make([]string, 0, 8)
+
+	rowStyle := lipgloss.NewStyle()
+	switch {
+	case focused:
+		rowStyle = styles.RowFocus
+	case visibleIdx%2 == 1:
+		rowStyle = styles.RowZebra
+	}
+
+	cellStyle := func(s string) string {
+		return rowStyle.Render(s)
+	}
 
 	// Position cell.
 	posText := strconv.Itoa(position)
@@ -174,17 +186,17 @@ func (m Model) renderDataRow(l Layout, t quiz.Team, position int, focused bool, 
 		posText = "★ " + posText
 	}
 
-	posCell := positionStyle(position).Render(padCell(posText, l.PosWidth, alignRight))
+	posCell := positionStyle(position).Inherit(rowStyle).Render(padCell(posText, l.PosWidth, alignRight))
 	cells = append(cells, decorateFocus(posCell, l.PosWidth, alignRight, focusCell,
 		Cell{Kind: CellPosition}, m.edit, false))
 
 	// Team name.
-	teamRaw := padCell(truncate(t.Name, l.TeamWidth), l.TeamWidth, alignLeft)
+	teamRaw := cellStyle(padCell(truncate(t.Name, l.TeamWidth), l.TeamWidth, alignLeft))
 	cells = append(cells, decorateFocus(teamRaw, l.TeamWidth, alignLeft, focusCell,
 		Cell{Kind: CellTeam}, m.edit, true))
 
 	if l.ShowPlayers {
-		playersRaw := padCell(truncate(t.Players, l.PlayersWidth), l.PlayersWidth, alignLeft)
+		playersRaw := cellStyle(padCell(truncate(t.Players, l.PlayersWidth), l.PlayersWidth, alignLeft))
 		cells = append(cells, decorateFocus(playersRaw, l.PlayersWidth, alignLeft, focusCell,
 			Cell{Kind: CellPlayers}, m.edit, true))
 	}
@@ -197,47 +209,40 @@ func (m Model) renderDataRow(l Layout, t quiz.Team, position int, focused bool, 
 			text = score.Format(v)
 		}
 
-		raw := padCell(text, l.RoundWidth, alignRight)
+		raw := cellStyle(padCell(text, l.RoundWidth, alignRight))
 		perfect := ok && v >= threshold
 
 		roundCell := Cell{Kind: CellRound, Round: r}
 		if perfect && !focusCell.Equal(roundCell) {
-			raw = styles.Perfect.Render(raw)
+			raw = styles.Perfect.Render(padCell(text, l.RoundWidth, alignRight))
 		}
 
 		cells = append(cells, decorateFocus(raw, l.RoundWidth, alignRight, focusCell,
 			roundCell, m.edit, true))
 
 		if slices.Contains(l.VisibleCheckpts, r) {
-			cpRaw := padCell(score.Format(quiz.Checkpoint(t, r)), l.CheckptWidth, alignRight)
+			cpRaw := cellStyle(padCell(score.Format(quiz.Checkpoint(t, r)), l.CheckptWidth, alignRight))
 			cells = append(cells, decorateFocus(cpRaw, l.CheckptWidth, alignRight, focusCell,
 				Cell{Kind: CellCheckpoint, Round: r}, m.edit, false))
 		}
 	}
 
-	totalRaw := padCell(score.Format(t.Total()), l.TotalWidth, alignRight)
+	totalRaw := cellStyle(padCell(score.Format(t.Total()), l.TotalWidth, alignRight))
 	cells = append(cells, decorateFocus(totalRaw, l.TotalWidth, alignRight, focusCell,
 		Cell{Kind: CellTotal}, m.edit, false))
 
-	line := " " + strings.Join(cells, " │ ")
+	sep := rowStyle.Render(" │ ")
+	line := rowStyle.Render(" ") + strings.Join(cells, sep)
+
 	if l.RightPad > 0 {
-		line += strings.Repeat(" ", l.RightPad)
+		line += rowStyle.Render(strings.Repeat(" ", l.RightPad))
 	}
 
-	line = padLine(line, l.Width)
-
-	switch {
-	case m.mode == ModeEditScore && focused:
-		// Row-level highlight is dropped in Edit mode to keep per-cell
-		// focus legible.
-		return line
-	case focused:
-		return styles.RowFocus.Render(line)
-	case visibleIdx%2 == 1:
-		return styles.RowZebra.Render(line)
-	default:
-		return line
+	if w := lipgloss.Width(line); w < l.Width {
+		line += rowStyle.Render(strings.Repeat(" ", l.Width-w))
 	}
+
+	return line
 }
 
 // decorateFocus returns the given pre-padded cell string, optionally

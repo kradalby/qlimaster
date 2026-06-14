@@ -148,13 +148,13 @@ func readOutCard(q quiz.Quiz, t quiz.Team, position int, tieCount int, isWinner 
 	if isWinner {
 		titleStyle = styles.Gold.Bold(true)
 	}
-	
+
 	posLine := titleStyle.Render(
-    		"Position " + strconv.Itoa(position) + " (" + strconv.Itoa(tieCount) + ")",
+		"Position " + strconv.Itoa(position) + " (" + strconv.Itoa(tieCount) + ")",
 	)
 	if isWinner {
 		posLine = titleStyle.Render(
-    			"★ POSITION " + strconv.Itoa(position) + " (" + strconv.Itoa(tieCount) + ") ★",
+			"★ POSITION " + strconv.Itoa(position) + " (" + strconv.Itoa(tieCount) + ") ★",
 		)
 	}
 
