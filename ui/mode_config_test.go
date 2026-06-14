@@ -11,295 +11,318 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestConfig_UpdatesQuiz walks through the config flow and confirms the
-// quiz config is mutated.
+// config-form test key events.
+var (
+	kEnter = tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"}
+	kEsc   = tea.KeyPressMsg{Code: tea.KeyEscape}
+	kBack  = tea.KeyPressMsg{Code: tea.KeyBackspace}
+	kDown  = tea.KeyPressMsg{Code: tea.KeyDown}
+	kRight = tea.KeyPressMsg{Code: tea.KeyRight}
+)
+
+// openConfig builds a Model from cfg and opens the config form.
+func openConfig(t *testing.T, cfg quiz.Config) tea.Model {
+	t.Helper()
+
+	dir := t.TempDir()
+	m, err := New(Config{
+		Path:       filepath.Join(dir, "quiz.hujson"),
+		QuizConfig: cfg,
+		QuizRoot:   dir,
+	})
+	require.NoError(t, err)
+
+	var model tea.Model = m
+
+	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	model, _ = model.Update(teaKey(":"))
+	mm, _ := model.(Model)
+	require.Equal(t, ModeConfig, mm.mode)
+
+	return model
+}
+
+// clearCell sends enough backspaces to empty the active edit buffer.
+func clearCell(model tea.Model) tea.Model {
+	for range 6 {
+		model, _ = model.Update(kBack)
+	}
+
+	return model
+}
+
+// typeStr sends each rune of s as a key press.
+func typeStr(model tea.Model, s string) tea.Model {
+	for _, r := range s {
+		model, _ = model.Update(teaKey(string(r)))
+	}
+
+	return model
+}
+
+// TestConfig_UpdatesQuiz drives the spreadsheet flow: edit Rounds, then
+// Checkpoints, each committed in place.
 func TestConfig_UpdatesQuiz(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
-	m, err := New(Config{
-		Path:       filepath.Join(dir, "quiz.hujson"),
-		QuizConfig: quiz.DefaultConfig(),
-		QuizRoot:   dir,
-	})
-	require.NoError(t, err)
+	model := openConfig(t, quiz.DefaultConfig())
 
-	var model tea.Model = m
+	// Edit Rounds (focused on open) 8 -> 6.
+	model, _ = model.Update(kEnter)
+	model = clearCell(model)
+	model = typeStr(model, "6")
+	model, _ = model.Update(kEnter)
 
-	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
-	model, _ = model.Update(teaKey(":"))
 	mm, _ := model.(Model)
-	require.Equal(t, ModeConfig, mm.mode)
+	assert.Equal(t, ModeConfig, mm.mode, "commit keeps the form open")
+	assert.Equal(t, 6, mm.quiz.Config.Rounds)
 
-	// Select all of the rounds field and replace with "6".
-	for range 2 {
-		model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyBackspace, Text: ""})
-	}
+	// Down twice to Checkpoints, replace with "3,6".
+	model, _ = model.Update(kDown)
+	model, _ = model.Update(kDown)
+	model, _ = model.Update(kEnter)
+	model = clearCell(model)
+	model = typeStr(model, "3,6")
+	model, _ = model.Update(kEnter)
 
-	model, _ = model.Update(teaKey("6"))
+	mm, _ = model.(Model)
+	assert.Equal(t, []int{3, 6}, mm.quiz.Config.Checkpoints)
 
-	// Tab to questions, keep.
-	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
-	// Tab past max points, keep.
-	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
-	// Tab past round max points, keep.
-	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
-	// Tab to checkpoints, replace with "3,6".
-	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
-	for range 3 {
-		model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyBackspace, Text: ""})
-	}
-
-	model, _ = model.Update(teaKey("3"))
-	model, _ = model.Update(teaKey(","))
-	model, _ = model.Update(teaKey("6"))
-	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
+	// Esc exits.
+	model, _ = model.Update(kEsc)
 	mm, _ = model.(Model)
 	assert.Equal(t, ModeNormal, mm.mode)
-	assert.Equal(t, 6, mm.quiz.Config.Rounds)
-	assert.Equal(t, []int{3, 6}, mm.quiz.Config.Checkpoints)
 }
 
-// TestConfig_RejectsInvalid shows inline error on unparseable input.
+// TestConfig_RejectsInvalid shows an inline error and keeps the cell open
+// when the committed value is unparseable.
 func TestConfig_RejectsInvalid(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
-	m, err := New(Config{
-		Path:       filepath.Join(dir, "quiz.hujson"),
-		QuizConfig: quiz.DefaultConfig(),
-		QuizRoot:   dir,
-	})
-	require.NoError(t, err)
+	model := openConfig(t, quiz.DefaultConfig())
 
-	var model tea.Model = m
+	model, _ = model.Update(kEnter)
+	model = clearCell(model) // empty Rounds buffer
+	model, _ = model.Update(kEnter)
 
-	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
-
-	model, _ = model.Update(teaKey(":"))
-	for range 2 {
-		model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyBackspace, Text: ""})
-	}
-	// "x" is not a digit and is now silently dropped by configAppend's
-	// character filter. Submitting with an empty Rounds field must still
-	// surface the inline error.
-	model, _ = model.Update(teaKey("x"))
-	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
 	mm, _ := model.(Model)
 	assert.Equal(t, ModeConfig, mm.mode)
+	assert.True(t, mm.configEdit.editing, "cell stays in edit on error")
 	assert.NotEmpty(t, mm.errMsg)
 }
 
-// TestConfig_IgnoresEscapeSequenceNoise is a regression test for the
-// "new quiz opens with garbage Rounds value" bug. Stray escape
-// sequences (e.g. a cursor position report leaking through the key
-// path) arriving in tea.KeyPressMsg.Text must not be appended to the
-// numeric form fields - not even the digits inside them.
+// TestConfig_IgnoresEscapeSequenceNoise is a regression test: stray escape
+// sequences arriving in tea.KeyPressMsg.Text must never reach a numeric edit
+// buffer, not even the digits inside them.
 func TestConfig_IgnoresEscapeSequenceNoise(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
-	m, err := New(Config{
-		Path:       filepath.Join(dir, "quiz.hujson"),
-		QuizConfig: quiz.DefaultConfig(),
-		QuizRoot:   dir,
-	})
-	require.NoError(t, err)
+	model := openConfig(t, quiz.DefaultConfig())
 
-	var model tea.Model = m
+	// Begin editing Rounds; the buffer starts at the current value "8".
+	model, _ = model.Update(kEnter)
 
-	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
-	model, _ = model.Update(teaKey(":"))
+	// A cursor-position-report blob: the whole thing is control-bearing
+	// noise and must be rejected wholesale.
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyExtended, Text: "\x1b[75;1R"})
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyExtended, Text: "\x7f[1;2R"})
+	// Plain garbage with no control chars reaches the buffer; the digit
+	// filter keeps "3" and drops the letters.
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyExtended, Text: "abc3def"})
+
 	mm, _ := model.(Model)
-	require.Equal(t, ModeConfig, mm.mode)
-
-	// Simulate the exact payload from the reported bug: ESC plus CSI
-	// introducer plus a cursor-position-report tail, all arriving in a
-	// single Text blob. The embedded digits (7,5,1) must not leak
-	// through - the whole blob is noise and must be rejected wholesale.
-	noise := tea.KeyPressMsg{Code: tea.KeyExtended, Text: "\x1b[75;1R"}
-	model, _ = model.Update(noise)
-	// A raw-control-char variant (DEL + other noise) - also rejected.
-	raw := tea.KeyPressMsg{Code: tea.KeyExtended, Text: "\x7f[1;2R"}
-	model, _ = model.Update(raw)
-	// Plain-text garbage with embedded digits contains no control
-	// characters, so it reaches configAppend. There the per-field
-	// digit filter keeps the "3" and drops "abc" and "def".
-	mixed := tea.KeyPressMsg{Code: tea.KeyExtended, Text: "abc3def"}
-	model, _ = model.Update(mixed)
-
-	mm, _ = model.(Model)
-	// Seed "8" plus the lone "3" that survived the mixed payload.
-	// Nothing from the escape-sequence blobs landed in the field.
-	assert.Equal(t, "83", mm.configEdit.rounds)
-	assert.NotContains(t, mm.configEdit.rounds, "7")
-	assert.NotContains(t, mm.configEdit.rounds, "5")
-	assert.NotContains(t, mm.configEdit.rounds, "1")
-	assert.NotContains(t, mm.configEdit.rounds, "[")
-	assert.NotContains(t, mm.configEdit.rounds, "R")
-	assert.NotContains(t, mm.configEdit.rounds, "\x1b")
+	assert.Equal(t, "83", mm.configEdit.input)
+	assert.NotContains(t, mm.configEdit.input, "7")
+	assert.NotContains(t, mm.configEdit.input, "[")
+	assert.NotContains(t, mm.configEdit.input, "R")
 }
 
-// TestConfig_IgnoresSplitEscapeSequence reproduces the harder variant of
-// the garbage-Rounds bug: a terminal report (cursor position / DECRQM mode
-// report) racing the Config overlay open arrives split across reads, so the
-// decoder emits the CSI prefix as a uv.UnknownEvent and the parameter and
-// terminator bytes as individual KeyPressMsgs. The leading ESC and '[' are
-// already gone, so the per-keystroke control-char filter cannot recognise
-// the leak - only the in-progress-escape signal from the UnknownEvent can.
-// Without the swallow, the bare digits ("2", "6") corrupt the focused
-// Rounds field, producing values like "800000000000020262".
+// TestConfig_IgnoresSplitEscapeSequence reproduces the split-report variant:
+// the CSI prefix arrives as a uv.UnknownEvent and the tail as bare key
+// presses, which must be swallowed rather than landing in the buffer.
 func TestConfig_IgnoresSplitEscapeSequence(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
-	m, err := New(Config{
-		Path:       filepath.Join(dir, "quiz.hujson"),
-		QuizConfig: quiz.DefaultConfig(),
-		QuizRoot:   dir,
-	})
-	require.NoError(t, err)
+	model := openConfig(t, quiz.DefaultConfig())
 
-	var model tea.Model = m
+	model, _ = model.Update(kEnter) // edit Rounds, buffer "8"
 
-	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
-	model, _ = model.Update(teaKey(":"))
-	mm, _ := model.(Model)
-	require.Equal(t, ModeConfig, mm.mode)
-
-	// "\x1b[20;26R" split as the decoder delivers it: the prefix lands as
-	// an incomplete-CSI UnknownEvent, the tail as bare key presses.
 	model, _ = model.Update(uv.UnknownEvent("\x1b[20"))
 	for _, r := range []rune{';', '2', '6', 'R'} {
 		model, _ = model.Update(teaKey(string(r)))
 	}
 
-	mm, _ = model.(Model)
-	assert.Equal(t, ModeConfig, mm.mode, "config must stay open")
-	assert.Equal(t, "8", mm.configEdit.rounds, "no leaked digits in Rounds")
+	mm, _ := model.(Model)
+	assert.Equal(t, "8", mm.configEdit.input, "no leaked digits")
 
-	// After the terminator the swallow clears, so real typing resumes.
+	// After the terminator real typing resumes.
 	model, _ = model.Update(teaKey("5"))
 	mm, _ = model.(Model)
-	assert.Equal(t, "85", mm.configEdit.rounds)
+	assert.Equal(t, "85", mm.configEdit.input)
 }
 
-// TestConfig_CheckpointsAllowsCommaAndSpace confirms the Checkpoints
-// field accepts the separator characters it needs while still
-// filtering out non-digit noise.
+// TestConfig_CheckpointsAllowsCommaAndSpace confirms the Checkpoints cell
+// accepts its separator characters while filtering letters.
 func TestConfig_CheckpointsAllowsCommaAndSpace(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
-	m, err := New(Config{
-		Path:       filepath.Join(dir, "quiz.hujson"),
-		QuizConfig: quiz.DefaultConfig(),
-		QuizRoot:   dir,
-	})
-	require.NoError(t, err)
+	model := openConfig(t, quiz.DefaultConfig())
 
-	var model tea.Model = m
+	// Down twice (Rounds -> Questions -> Checkpoints), then edit.
+	model, _ = model.Update(kDown)
+	model, _ = model.Update(kDown)
+	model, _ = model.Update(kEnter)
+	model = clearCell(model)
 
-	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
-	model, _ = model.Update(teaKey(":"))
-	// Tab past Rounds, Questions, Max points and Round max points to land
-	// on Checkpoints.
-	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
-	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
-	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
-	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
-	// Erase the default "4,8".
-	for range 3 {
-		model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyBackspace, Text: ""})
-	}
-	// A mix of legal (digits, comma, space) and illegal (letters)
-	// characters with NO control codes - the whole blob reaches
-	// configAppend and the per-field filter strips just the letter.
-	payload := tea.KeyPressMsg{Code: tea.KeyExtended, Text: "2, 5,x9"}
-	model, _ = model.Update(payload)
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyExtended, Text: "2, 5,x9"})
 	mm, _ := model.(Model)
-	assert.Equal(t, "2, 5,9", mm.configEdit.checkpoints)
+	assert.Equal(t, "2, 5,9", mm.configEdit.input)
 }
 
-func TestParseRoundMaxPoints(t *testing.T) {
+// TestConfigRows_GridTracksRounds confirms the navigable grid grows with the
+// round count and chunks to fit the width.
+func TestConfigRows_GridTracksRounds(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name    string
-		in      string
-		want    map[string]int
-		wantErr bool
-	}{
-		{"empty", "", nil, false},
-		{"whitespace only", "   ", nil, false},
-		{"single", "3:11", map[string]int{"3": 11}, false},
-		{"multiple", "3:11,7:12", map[string]int{"3": 11, "7": 12}, false},
-		{"whitespace around", " 3 : 11 , 7:12 ", map[string]int{"3": 11, "7": 12}, false},
-		{"trailing comma", "3:11,", map[string]int{"3": 11}, false},
-		{"duplicate last wins", "3:11,3:12", map[string]int{"3": 12}, false},
-		{"missing colon", "3-11", nil, true},
-		{"non-int round", "x:11", nil, true},
-		{"non-int value", "3:y", nil, true},
+	m := Model{width: 140, quiz: quiz.Quiz{Config: quiz.Config{Rounds: 8, QuestionsPerRound: 10}}}
+
+	rows := m.configRows()
+	require.GreaterOrEqual(t, len(rows), 4) // 3 scalar rows + at least one grid row
+
+	count := 0
+	for _, row := range rows[3:] {
+		count += len(row)
 	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 
-			got, err := parseRoundMaxPoints(tc.in)
-			if tc.wantErr {
-				require.Error(t, err)
+	assert.Equal(t, 8, count, "one grid cell per round")
 
-				return
-			}
+	// A narrow viewport wraps the same cells across several rows.
+	m.width = 30
+	rows = m.configRows()
 
-			require.NoError(t, err)
-			assert.Equal(t, tc.want, got)
-		})
+	count = 0
+	for _, row := range rows[3:] {
+		count += len(row)
 	}
+
+	assert.Equal(t, 8, count)
+	assert.Greater(t, len(rows[3:]), 1, "narrow width wraps the grid")
 }
 
-func TestFormatRoundMaxPoints(t *testing.T) {
+// TestConfig_RoundOverrideViaCells edits a per-round box and confirms the
+// override is stored, then cleared when set back to the default.
+func TestConfig_RoundOverrideViaCells(t *testing.T) {
 	t.Parallel()
 
-	assert.Empty(t, formatRoundMaxPoints(nil))
-	// Keys are emitted in ascending numeric order regardless of map order.
-	assert.Equal(t, "1:10,2:20", formatRoundMaxPoints(map[string]int{"2": 20, "1": 10}))
+	model := openConfig(t, quiz.Config{Rounds: 4, QuestionsPerRound: 10})
 
-	// Format then parse round-trips to the original map.
-	in := map[string]int{"3": 11, "7": 12}
-	got, err := parseRoundMaxPoints(formatRoundMaxPoints(in))
-	require.NoError(t, err)
-	assert.Equal(t, in, got)
-}
+	// Down 3 to the first grid row, Right 2 to R3.
+	model, _ = model.Update(kDown)
+	model, _ = model.Update(kDown)
+	model, _ = model.Update(kDown)
+	model, _ = model.Update(kRight)
+	model, _ = model.Update(kRight)
 
-// TestConfig_RoundMaxPointsRoundtrip types a per-round override into the
-// config overlay and confirms it lands on the quiz config.
-func TestConfig_RoundMaxPointsRoundtrip(t *testing.T) {
-	t.Parallel()
+	// Edit R3 -> 11.
+	model, _ = model.Update(kEnter)
+	model = clearCell(model)
+	model = typeStr(model, "11")
+	model, _ = model.Update(kEnter)
 
-	dir := t.TempDir()
-	m, err := New(Config{
-		Path:       filepath.Join(dir, "quiz.hujson"),
-		QuizConfig: quiz.DefaultConfig(),
-		QuizRoot:   dir,
-	})
-	require.NoError(t, err)
-
-	var model tea.Model = m
-
-	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
-	model, _ = model.Update(teaKey(":"))
-	// Tab past Rounds, Questions and Max points to land on Round max points.
-	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
-	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
-	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab, Text: "\t"})
-
-	for _, k := range []string{"3", ":", "1", "1"} {
-		model, _ = model.Update(teaKey(k))
-	}
-
-	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
 	mm, _ := model.(Model)
-	assert.Equal(t, ModeNormal, mm.mode)
 	assert.Equal(t, 11, mm.quiz.Config.RoundMaxPoints["3"])
+
+	// Edit R3 back to the default (10) -> override removed.
+	model, _ = model.Update(kEnter)
+	model = clearCell(model)
+	model = typeStr(model, "10")
+	model, _ = model.Update(kEnter)
+
+	mm, _ = model.(Model)
+	_, ok := mm.quiz.Config.RoundMaxPoints["3"]
+	assert.False(t, ok, "value equal to default drops the override")
+}
+
+// TestConfig_RoundsDecreaseDropsOverrides confirms shrinking the round count
+// prunes overrides and checkpoints that fall out of range.
+func TestConfig_RoundsDecreaseDropsOverrides(t *testing.T) {
+	t.Parallel()
+
+	model := openConfig(t, quiz.Config{
+		Rounds: 8, QuestionsPerRound: 10,
+		RoundMaxPoints: map[string]int{"6": 11},
+		Checkpoints:    []int{4, 8},
+	})
+
+	model, _ = model.Update(kEnter) // edit Rounds
+	model = clearCell(model)
+	model = typeStr(model, "3")
+	model, _ = model.Update(kEnter)
+
+	mm, _ := model.(Model)
+	assert.Equal(t, 3, mm.quiz.Config.Rounds)
+	_, ok := mm.quiz.Config.RoundMaxPoints["6"]
+	assert.False(t, ok, "override beyond new round count dropped")
+	assert.Empty(t, mm.quiz.Config.Checkpoints, "checkpoints beyond new round count dropped")
+}
+
+// TestConfig_LegacyMaxPointsDropped confirms the legacy global MaxPoints is
+// dropped: the grid baselines at questions per round, and only the edited
+// round gets an explicit override.
+func TestConfig_LegacyMaxPointsDropped(t *testing.T) {
+	t.Parallel()
+
+	model := openConfig(t, quiz.Config{Rounds: 3, QuestionsPerRound: 10, MaxPoints: 20})
+
+	mm, _ := model.(Model)
+	// Before any edit the grid shows questions per round, not the old 20.
+	assert.Equal(t, "10", mm.configCellValue(configCell{Kind: cfgRoundMax, Round: 1}))
+
+	// Down 3 to R1, Right to R2, edit R2 -> 15.
+	model, _ = model.Update(kDown)
+	model, _ = model.Update(kDown)
+	model, _ = model.Update(kDown)
+	model, _ = model.Update(kRight)
+	model = typeStr(model, "15") // type-to-edit, no Enter needed first
+	model, _ = model.Update(kEnter)
+
+	mm, _ = model.(Model)
+	assert.Equal(t, 0, mm.quiz.Config.MaxPoints, "legacy MaxPoints dropped")
+	assert.Equal(t, 15, mm.quiz.Config.RoundMaxPoints["2"])
+	_, ok := mm.quiz.Config.RoundMaxPoints["1"]
+	assert.False(t, ok, "untouched rounds keep the questions-per-round baseline")
+}
+
+// TestConfig_TypeToEdit confirms typing a digit on a focused cell starts the
+// edit immediately, replacing the value.
+func TestConfig_TypeToEdit(t *testing.T) {
+	t.Parallel()
+
+	model := openConfig(t, quiz.DefaultConfig())
+
+	// Rounds focused on open; just type without pressing Enter first.
+	model = typeStr(model, "5")
+	mm, _ := model.(Model)
+	require.True(t, mm.configEdit.editing, "typing starts the edit")
+	assert.Equal(t, "5", mm.configEdit.input, "typed digit replaces the value")
+
+	model, _ = model.Update(kEnter)
+	mm, _ = model.(Model)
+	assert.Equal(t, 5, mm.quiz.Config.Rounds)
+}
+
+// TestConfig_RenderShowsGrid is a smoke test for the form rendering.
+func TestConfig_RenderShowsGrid(t *testing.T) {
+	t.Parallel()
+
+	m := Model{
+		width: 140, height: 30, mode: ModeConfig,
+		configEdit: configState{focus: configCell{Kind: cfgRounds}},
+		quiz:       quiz.Quiz{Config: quiz.Config{Rounds: 4, QuestionsPerRound: 10}},
+	}
+
+	out := m.renderConfig()
+	require.NotEmpty(t, out)
+	assert.Contains(t, out, "Max points per round")
+	assert.Contains(t, out, "R4")
 }

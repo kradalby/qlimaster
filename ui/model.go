@@ -390,6 +390,13 @@ func (m Model) footerStatus() string {
 	return m.status
 }
 
+// Footer hint labels reused across modes.
+const (
+	hintEdit  = "edit"
+	hintClear = "clear"
+	hintExit  = "exit"
+)
+
 // hints returns the contextual keybind helper shown in the footer for the
 // current mode.
 func (m Model) hints() []footerHint {
@@ -397,7 +404,7 @@ func (m Model) hints() []footerHint {
 	case ModeNormal:
 		return []footerHint{
 			{"e", "enter"},
-			{"i", "edit"},
+			{"i", hintEdit},
 			{"a", "add"},
 			{"R", "read-out"},
 			{"E", "export"},
@@ -406,7 +413,7 @@ func (m Model) hints() []footerHint {
 			{"q", "quit"},
 		}
 	case ModeReadOut:
-		return []footerHint{{"Space/↓", "next"}, {"↑", "prev"}, {"Esc", "exit"}}
+		return []footerHint{{"Space/↓", "next"}, {"↑", "prev"}, {"Esc", hintExit}}
 	case ModeExport:
 		return []footerHint{{"c", "CSV"}, {"x", "XLSX"}, {"b", "both"}, {"Esc", "cancel"}}
 	case ModeHelp:
@@ -415,20 +422,24 @@ func (m Model) hints() []footerHint {
 		return []footerHint{{"Enter", "next"}, {"Tab", "skip"}, {"Esc", "back"}}
 	case ModeEditScore:
 		if m.edit.editing {
-			return []footerHint{{"Enter", "save"}, {"Esc", "cancel"}, {"Ctrl+U", "clear"}}
+			return []footerHint{{"Enter", "save"}, {"Esc", "cancel"}, {"Ctrl+U", hintClear}}
 		}
 
 		return []footerHint{
 			{"hjkl", "move"},
-			{"Enter", "edit"},
-			{"x", "clear"},
+			{"Enter", hintEdit},
+			{"x", hintClear},
 			{"dd", "delete"},
 			{"Esc", "normal"},
 		}
 	case ModeNewTeam:
 		return []footerHint{{"Enter", "accept"}, {"Up/Down", "select"}, {"Esc", "cancel"}}
 	case ModeConfig:
-		return []footerHint{{"Tab", "next"}, {"Enter", "save"}, {"Esc", "cancel"}}
+		if m.configEdit.editing {
+			return []footerHint{{"Enter", "commit"}, {"Esc", "cancel"}, {"Ctrl+U", hintClear}}
+		}
+
+		return []footerHint{{"↑↓←→", "move"}, {"Enter", hintEdit}, {"x", "reset"}, {"Esc", hintExit}}
 	default:
 		return []footerHint{{"Esc", "back"}}
 	}
