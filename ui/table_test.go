@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/charmbracelet/lipgloss"
@@ -32,6 +33,39 @@ func TestDecorateFocus_HighlightSurvivesRowBackground(t *testing.T) {
 		"focus highlight must wrap the plain text")
 	assert.NotEqual(t, styles.CellFocus.Render(rowPainted), got,
 		"focus highlight must not wrap the row-painted text (background would clobber it)")
+}
+
+// TestRenderTable_EditFocusMarkerVisible is the end-to-end guard: render a
+// real table in edit mode and confirm the focused score cell carries the
+// CellFocus highlight over its plain text, proving the call sites pass the
+// unpainted string through decorateFocus.
+//
+//nolint:paralleltest // mutates the global lipgloss color profile
+func TestRenderTable_EditFocusMarkerVisible(t *testing.T) {
+	lipgloss.SetColorProfile(termenv.TrueColor)
+
+	dir := t.TempDir()
+	m, err := New(Config{
+		Path:       filepath.Join(dir, "quiz.hujson"),
+		QuizConfig: quiz.Config{Rounds: 3, QuestionsPerRound: 10},
+		QuizRoot:   dir,
+	})
+	require.NoError(t, err)
+
+	m, _ = m.apply(quiz.ChangeAddTeam{Name: "Alpha"})
+	teamID := m.quiz.Teams[0].ID
+	m, _ = m.apply(quiz.ChangeSetScore{TeamID: teamID, Round: 1, Score: 5})
+
+	m.width, m.height = 140, 30
+	m.mode = ModeEditScore
+	m.rowCursor = 0
+	m.focusedCell = Cell{Kind: CellRound, Round: 1}
+
+	l := Compute(m.width, m.height, m.quiz.Config, m.lastEntered)
+	out := m.renderTable(l)
+
+	want := styles.CellFocus.Render(padCell("5", l.RoundWidth, alignRight))
+	assert.Contains(t, out, want, "focused score cell must show the CellFocus marker")
 }
 
 // TestAddressableCells verifies the cell sequence in the Full breakpoint

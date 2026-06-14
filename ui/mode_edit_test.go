@@ -199,6 +199,37 @@ func TestEditScore_ScoreCellRejectsLetters(t *testing.T) {
 	assert.Equal(t, "5.", mm.edit.input, "letters discarded at type time")
 }
 
+// TestEditScore_PlayersCellKeepsLetters confirms the players cell stays
+// free-text under the rune filter.
+func TestEditScore_PlayersCellKeepsLetters(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	m, err := New(Config{
+		Path:       filepath.Join(dir, "quiz.hujson"),
+		QuizConfig: quiz.Config{Rounds: 3, QuestionsPerRound: 10},
+		QuizRoot:   dir,
+	})
+	require.NoError(t, err)
+
+	m, _ = m.apply(quiz.ChangeAddTeam{Name: "Alpha"})
+
+	var model tea.Model = m
+
+	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	model, _ = model.Update(teaKey("i"))
+	model, _ = model.Update(teaKey("l")) // Players
+	mm, _ := model.(Model)
+	require.Equal(t, CellPlayers, mm.focusedCell.Kind)
+
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
+	model, _ = model.Update(teaKey("b"))
+	model, _ = model.Update(teaKey("o"))
+	model, _ = model.Update(teaKey("b"))
+	mm, _ = model.(Model)
+	assert.Equal(t, "bob", mm.edit.input)
+}
+
 // TestEditScore_NameCellKeepsLetters confirms the rune filter does not
 // leak into free-text cells: a team-name edit still accepts letters.
 func TestEditScore_NameCellKeepsLetters(t *testing.T) {
