@@ -277,6 +277,7 @@ func applySetConfig(q *Quiz, c ChangeSetConfig) error {
 func deepCopy(q Quiz) Quiz {
 	out := q
 	out.Config.Checkpoints = append([]int(nil), q.Config.Checkpoints...)
+	out.Config.RoundMaxPoints = maps.Clone(q.Config.RoundMaxPoints)
 
 	out.Teams = make([]Team, len(q.Teams))
 	for i, t := range q.Teams {
@@ -299,6 +300,10 @@ func equalQuiz(a, b Quiz) bool {
 	if a.Config.Rounds != b.Config.Rounds ||
 		a.Config.QuestionsPerRound != b.Config.QuestionsPerRound ||
 		a.Config.MaxPoints != b.Config.MaxPoints {
+		return false
+	}
+
+	if !maps.Equal(a.Config.RoundMaxPoints, b.Config.RoundMaxPoints) {
 		return false
 	}
 
