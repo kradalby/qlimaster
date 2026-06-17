@@ -22,7 +22,7 @@ jobs:
             system: aarch64-darwin
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Install Nix
         uses: NixOS/nix-installer-action@6b8548fe06acfb0155a50ab5d561accb215764cc # main
       - name: Setup Nix cache (hestia)
@@ -41,7 +41,7 @@ jobs:
             system: aarch64-darwin
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Install Nix
         uses: NixOS/nix-installer-action@6b8548fe06acfb0155a50ab5d561accb215764cc # main
       - name: Setup Nix cache (hestia)
@@ -60,7 +60,7 @@ jobs:
             system: aarch64-darwin
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Install Nix
         uses: NixOS/nix-installer-action@6b8548fe06acfb0155a50ab5d561accb215764cc # main
       - name: Setup Nix cache (hestia)
@@ -79,7 +79,7 @@ jobs:
             system: aarch64-darwin
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Install Nix
         uses: NixOS/nix-installer-action@6b8548fe06acfb0155a50ab5d561accb215764cc # main
       - name: Setup Nix cache (hestia)
@@ -98,7 +98,7 @@ jobs:
             system: aarch64-darwin
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Install Nix
         uses: NixOS/nix-installer-action@6b8548fe06acfb0155a50ab5d561accb215764cc # main
       - name: Setup Nix cache (hestia)
@@ -114,7 +114,7 @@ jobs:
       run:
         shell: nix develop --accept-flake-config --command bash -e {0}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Install Nix
         uses: NixOS/nix-installer-action@6b8548fe06acfb0155a50ab5d561accb215764cc # main
       - name: Setup Nix cache (hestia)

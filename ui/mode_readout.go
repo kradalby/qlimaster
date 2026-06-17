@@ -86,7 +86,8 @@ func (m Model) renderReadOut() string {
 	title := styles.TopBarBase.Render(centerInWidth(
 		styles.AppName.Render(" READ OUT  ·  "+
 			strconv.Itoa(m.readOut.idx+1)+" / "+strconv.Itoa(len(worstFirst))+" "),
-		m.width, pal.BgHeader))
+		m.width, pal.BgHeader,
+	))
 
 	tieCount := readOutTieCount(m.quiz, team)
 	card := readOutCard(m.quiz, team, position, tieCount, isWinner)
@@ -170,7 +171,8 @@ func readOutCard(q quiz.Quiz, t quiz.Team, position, tieCount int, isWinner bool
 
 	nameLine := nameStyle.Render(t.Name)
 	totalLine := lipgloss.NewStyle().Foreground(pal.FgBody).Render(
-		score.Format(t.Total()) + " points")
+		score.Format(t.Total()) + " points",
+	)
 
 	roundsBlock := renderRoundsTwoColumn(q, t)
 

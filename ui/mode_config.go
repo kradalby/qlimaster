@@ -453,7 +453,8 @@ func joinInts(xs []int) string {
 func (m Model) renderConfig() string {
 	lines := []string{styles.OverlayTitle.Render("Config"), ""}
 
-	lines = append(lines,
+	lines = append(
+		lines,
 		m.renderConfigScalar("Rounds", configCell{Kind: cfgRounds}),
 		m.renderConfigScalar("Questions per round", configCell{Kind: cfgQuestions}),
 		m.renderConfigScalar("Checkpoints", configCell{Kind: cfgCheckpoints}),

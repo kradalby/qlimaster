@@ -391,7 +391,8 @@ func (m Model) renderEnterScore() string {
 		errLine = "\n" + styles.Error.Render("! err: "+m.errMsg)
 	}
 
-	body := lipgloss.JoinVertical(lipgloss.Left,
+	body := lipgloss.JoinVertical(
+		lipgloss.Left,
 		title,
 		"",
 		input+errLine,

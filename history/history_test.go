@@ -144,7 +144,8 @@ func TestFindQuizRoot_PrefersExistingHistoryFile(t *testing.T) {
 	require.NoError(t, os.WriteFile(
 		filepath.Join(root, "history.hujson"),
 		[]byte(`{"version":1,"teams":[]}`),
-		0o600))
+		0o600,
+	))
 
 	found, ok := history.FindQuizRoot(root)
 	require.True(t, ok)
