@@ -43,8 +43,40 @@
           default = fc.goBuild common;
         };
 
-        apps.default = flake-utils.lib.mkApp {
-          drv = fc.goBuild common;
+        apps = {
+          default = flake-utils.lib.mkApp { drv = fc.goBuild common; };
+          test = flake-utils.lib.mkApp {
+            drv = pkgs.writeShellApplication {
+              name = "qlimaster-test";
+              runtimeInputs = [ go pkgs.gcc ]; # -race needs cgo + a C compiler
+              text = ''
+                export CGO_ENABLED=1
+                exec go test -race -cover ./...
+              '';
+            };
+          };
+          lint = flake-utils.lib.mkApp {
+            drv = pkgs.writeShellApplication {
+              name = "qlimaster-lint";
+              runtimeInputs = [ pkgs.golangci-lint ];
+              text = ''
+                export CGO_ENABLED=0
+                exec golangci-lint run --timeout=5m ./...
+              '';
+            };
+          };
+          fuzz = flake-utils.lib.mkApp {
+            drv = pkgs.writeShellApplication {
+              name = "qlimaster-fuzz";
+              runtimeInputs = [ go ];
+              # -fuzz must match exactly one target; pass a name + duration:
+              #   nix run .#fuzz -- FuzzParse 60s
+              text = ''
+                export CGO_ENABLED=0
+                exec go test -fuzz="''${1:-FuzzParse}" -fuzztime="''${2:-30s}" ./score
+              '';
+            };
+          };
         };
 
         formatter = fc.formatter common;

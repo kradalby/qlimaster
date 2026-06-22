@@ -67,10 +67,13 @@ qlimaster version
 
 ```
 nix develop          # or: direnv allow
-./scripts/test.sh
-./scripts/lint.sh
-./scripts/build.sh
+nix run .#test       # go test -race -cover ./...
+nix run .#lint       # golangci-lint
+nix build            # build the binary
+nix run .#fuzz       # fuzz the score parser (nix run .#fuzz -- FuzzParse 60s)
 ```
+
+`scripts/lint-ci.sh` / `scripts/lint-watch.sh` are `gh`-based CI-status helpers.
 
 Commits run `golangci-lint` and the test suite via a [prek](https://github.com/j178/prek)
 pre-commit hook (`prek install`).
