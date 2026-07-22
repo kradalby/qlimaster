@@ -34,11 +34,15 @@ type newTeamState struct {
 // startNewTeam opens the add-team overlay.
 func (m Model) startNewTeam() Model {
 	m.mode = ModeNewTeam
-	m.newTeam = newTeamState{}
+	m.newTeam = newTeamState{suggestIdx: noSuggestion}
 	m.errMsg = ""
 
 	return m
 }
+
+// noSuggestion marks that no suggestion is selected; the typed text is used
+// verbatim. Arrowing into the list selects a real index, which then wins.
+const noSuggestion = -1
 
 // handleNewTeamKey dispatches keys while ModeNewTeam is active.
 func (m Model) handleNewTeamKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
@@ -64,7 +68,8 @@ func (m Model) newTeamNameKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 
 	switch {
 	case isArrowUp(k):
-		if m.newTeam.suggestIdx > 0 {
+		// Up off the top row returns to the typed text (no selection).
+		if m.newTeam.suggestIdx >= 0 {
 			m.newTeam.suggestIdx--
 		}
 
@@ -80,7 +85,7 @@ func (m Model) newTeamNameKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 	case k == keyBackspace:
 		if m.newTeam.name != "" {
 			m.newTeam.name = m.newTeam.name[:len(m.newTeam.name)-1]
-			m.newTeam.suggestIdx = 0
+			m.newTeam.suggestIdx = noSuggestion
 		}
 
 		return m, nil
@@ -88,31 +93,30 @@ func (m Model) newTeamNameKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 
 	if text := sanitizeText(text); text != "" {
 		m.newTeam.name += text
-		m.newTeam.suggestIdx = 0
+		m.newTeam.suggestIdx = noSuggestion
 	}
 
 	return m, nil
 }
 
 // newTeamAcceptName confirms the name field and advances to the players
-// step. When the typed query is empty, the highlighted suggestion wins;
-// otherwise the typed text is preferred, promoted to the casing of any
-// suggestion that matches case-insensitively.
+// step. A suggestion the user arrowed onto wins outright; otherwise the typed
+// text is used, falling back to the top suggestion only when nothing was
+// typed.
 func (m Model) newTeamAcceptName(suggestions []history.Entry) Model {
 	name := strings.TrimSpace(m.newTeam.name)
-	if name == "" && len(suggestions) > 0 {
-		name = suggestions[m.newTeam.suggestIdx].Name
+
+	switch idx := m.newTeam.suggestIdx; {
+	case idx >= 0 && idx < len(suggestions):
+		name = suggestions[idx].Name
+	case name == "" && len(suggestions) > 0:
+		name = suggestions[0].Name
 	}
 
 	if name == "" {
 		m.errMsg = "team name required"
 
 		return m
-	}
-
-	if idx := m.newTeam.suggestIdx; idx >= 0 && idx < len(suggestions) &&
-		strings.EqualFold(suggestions[idx].Name, name) {
-		name = suggestions[idx].Name
 	}
 
 	m.newTeam.name = name
