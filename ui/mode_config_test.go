@@ -312,6 +312,28 @@ func TestConfig_TypeToEdit(t *testing.T) {
 	assert.Equal(t, 5, mm.quiz.Config.Rounds)
 }
 
+// TestConfig_ZeroNavigatesNotEdits is a regression test: "0" is the vim
+// first-column motion, not a value start. Pressing it (even repeatedly) must
+// never build an all-zero, uncommittable Rounds buffer.
+func TestConfig_ZeroNavigatesNotEdits(t *testing.T) {
+	t.Parallel()
+
+	model := openConfig(t, quiz.DefaultConfig())
+
+	// Rounds focused on open. Hammer "0" the way a stuck user would.
+	model = typeStr(model, "000000000")
+
+	mm, _ := model.(Model)
+	assert.False(t, mm.configEdit.editing, "0 must not start an edit")
+	assert.Empty(t, mm.configEdit.input, "0 leaves no junk buffer")
+
+	// The cell still edits normally with a real digit afterwards.
+	model = typeStr(model, "4")
+	model, _ = model.Update(kEnter)
+	mm, _ = model.(Model)
+	assert.Equal(t, 4, mm.quiz.Config.Rounds)
+}
+
 // TestConfig_RenderShowsGrid is a smoke test for the form rendering.
 func TestConfig_RenderShowsGrid(t *testing.T) {
 	t.Parallel()

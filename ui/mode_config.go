@@ -81,12 +81,17 @@ func (m Model) configNavKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 		return m.resetConfigCell()
 	}
 
-	if t := filterRunes(sanitizeText(text), m.configCellFilter()); t != "" {
-		m.configEdit.editing = true
-		m.configEdit.input = t
-		m.errMsg = ""
+	// "0" is the first-column motion (vim 0), not a value start: a number
+	// never begins with 0, so starting an edit with it only ever builds an
+	// uncommittable all-zero buffer. Let it navigate instead.
+	if !matches(km.First, k) {
+		if t := filterRunes(sanitizeText(text), m.configCellFilter()); t != "" {
+			m.configEdit.editing = true
+			m.configEdit.input = t
+			m.errMsg = ""
 
-		return m, nil
+			return m, nil
+		}
 	}
 
 	return m.moveConfigFocus(k, km), nil
