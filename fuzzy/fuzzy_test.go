@@ -31,6 +31,14 @@ func TestDo_CaseInsensitive(t *testing.T) {
 	require.Len(t, got, 3)
 }
 
+func TestDo_UppercaseQueryMatches(t *testing.T) {
+	t.Parallel()
+
+	items := []string{"Dark Horse", "dark matter", "DARK WEB"}
+	got := fuzzy.Do("DARK", items)
+	require.Len(t, got, 3, "an uppercase query must match like a lowercase one")
+}
+
 func TestDo_ReturnsRelevantFirst(t *testing.T) {
 	t.Parallel()
 

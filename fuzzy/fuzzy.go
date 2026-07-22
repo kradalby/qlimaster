@@ -48,7 +48,10 @@ func Do(query string, items []string) []Match {
 		return out
 	}
 
-	queryRunes := []rune(query)
+	// FuzzyMatchV2 with caseSensitive=false only lower-cases the candidate
+	// side; it expects a pre-lowered query, so an uppercase query would
+	// otherwise never match.
+	queryRunes := []rune(strings.ToLower(query))
 
 	out := make([]Match, 0, len(items))
 	for _, it := range items {
