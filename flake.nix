@@ -8,8 +8,15 @@
     flake-checks.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, flake-utils, flake-checks }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+      flake-checks,
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
       let
         # Every Go tool in this repo must agree on one toolchain. Bare
         # `pkgs.go` still resolves to 1.26 in unstable, so go_latest /
@@ -38,9 +45,11 @@
         # this keeps working across bumps. Fail loudly if it ever regresses
         # below what go.mod requires.
         go =
-          let g = pkgs.go_latest or (throw "pkgs.go_latest is not available in the pinned nixpkgs.");
+          let
+            g = pkgs.go_latest or (throw "pkgs.go_latest is not available in the pinned nixpkgs.");
           in
-          if builtins.compareVersions g.version "1.27.0" >= 0 then g
+          if builtins.compareVersions g.version "1.27.0" >= 0 then
+            g
           else
             throw ''
               qlimaster requires Go 1.27 or newer.
@@ -49,9 +58,12 @@
             '';
 
         version =
-          if self ? rev then builtins.substring 0 7 self.rev
-          else if self ? dirtyRev then (builtins.substring 0 7 self.dirtyRev) + "-dirty"
-          else "dev";
+          if self ? rev then
+            builtins.substring 0 7 self.rev
+          else if self ? dirtyRev then
+            (builtins.substring 0 7 self.dirtyRev) + "-dirty"
+          else
+            "dev";
 
         common = {
           inherit pkgs;
@@ -75,7 +87,10 @@
           test = flake-utils.lib.mkApp {
             drv = pkgs.writeShellApplication {
               name = "qlimaster-test";
-              runtimeInputs = [ go pkgs.gcc ]; # -race needs cgo + a C compiler
+              runtimeInputs = [
+                go
+                pkgs.gcc
+              ]; # -race needs cgo + a C compiler
               text = ''
                 export CGO_ENABLED=1
                 exec go test -race -cover ./...
@@ -136,5 +151,6 @@
             echo "  golangci-lint: $(golangci-lint --version 2>/dev/null | head -1)"
           '';
         };
-      });
+      }
+    );
 }
