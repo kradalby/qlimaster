@@ -110,8 +110,8 @@ func Compute(width, height int, cfg quiz.Config, lastEnteredRound int) Layout {
 		RoundWidth:   7,
 		CheckptWidth: 8,
 		PlayersWidth: 14,
+		Breakpoint:   classify(width),
 	}
-	layout.Breakpoint = classify(width)
 	layout.UseLongLabels = layout.Breakpoint == BreakpointFull
 
 	// A checkpoint that lands on the last round duplicates the Total
