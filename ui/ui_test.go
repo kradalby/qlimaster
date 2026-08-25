@@ -3,12 +3,14 @@ package ui
 import (
 	"path/filepath"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/kradalby/qlimaster/quiz"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kradalby/qlimaster/quiz"
 )
 
 // TestModel_Init creates a Model against a fresh quiz file and sends the
@@ -32,30 +34,32 @@ func TestModel_Init(t *testing.T) {
 }
 
 // TestModel_Apply exercises the quiz.Apply wrapper and the save command.
+//
+//nolint:paralleltest // synctest bubbles are incompatible with t.Parallel
 func TestModel_Apply(t *testing.T) {
-	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		dir := t.TempDir()
+		m, err := New(Config{
+			Path:       filepath.Join(dir, "quiz.hujson"),
+			QuizConfig: quiz.DefaultConfig(),
+			QuizRoot:   dir,
+		})
+		require.NoError(t, err)
 
-	dir := t.TempDir()
-	m, err := New(Config{
-		Path:       filepath.Join(dir, "quiz.hujson"),
-		QuizConfig: quiz.DefaultConfig(),
-		QuizRoot:   dir,
-	})
-	require.NoError(t, err)
-
-	m, cmd := m.apply(quiz.ChangeAddTeam{Name: "Alpha"})
-	require.NotNil(t, cmd)
-	// Run the save command synchronously to ensure it doesn't error.
-	msg := cmd()
-	// cmd is tea.Batch(saveCmd, clearStatusCmd) - resolve the BatchMsg.
-	if batch, ok := msg.(tea.BatchMsg); ok {
-		for _, sub := range batch {
-			_ = sub()
+		m, cmd := m.apply(quiz.ChangeAddTeam{Name: "Alpha"})
+		require.NotNil(t, cmd)
+		// Run the save command synchronously to ensure it doesn't error.
+		msg := cmd()
+		// cmd is tea.Batch(saveCmd, clearStatusCmd) - resolve the BatchMsg.
+		if batch, ok := msg.(tea.BatchMsg); ok {
+			for _, sub := range batch {
+				_ = sub()
+			}
 		}
-	}
 
-	assert.Len(t, m.quiz.Teams, 1)
-	assert.Equal(t, "Alpha", m.quiz.Teams[0].Name)
+		assert.Len(t, m.quiz.Teams, 1)
+		assert.Equal(t, "Alpha", m.quiz.Teams[0].Name)
+	})
 }
 
 // TestModel_HelpToggle verifies pressing '?' opens and dismisses the help
