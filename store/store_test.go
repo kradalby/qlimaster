@@ -3,13 +3,16 @@ package store_test
 import (
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/kradalby/qlimaster/quiz"
-	"github.com/kradalby/qlimaster/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kradalby/qlimaster/quiz"
+	"github.com/kradalby/qlimaster/store"
 )
 
 func TestSaveLoadRoundTrip(t *testing.T) {
@@ -132,4 +135,76 @@ func TestSaveAtomicWrite(t *testing.T) {
 	for _, e := range entries {
 		assert.NotContains(t, e.Name(), ".tmp", "leftover temp file: %s", e.Name())
 	}
+}
+
+// TestSaveMapKeyOrderIsDeterministic locks in the sorted map-key output that
+// the on-disk quiz.hujson format depends on.
+//
+// Team.Scores and Config.RoundMaxPoints are Go maps, and map iteration order
+// is randomised. encoding/json (v1) sorts map keys when marshalling, so a
+// saved file is byte-stable across saves and produces clean diffs in the
+// user's version control -- which is the whole point of the
+// comment-preserving save path.
+//
+// Go 1.27 reimplemented encoding/json on top of encoding/json/v2, and v2 does
+// NOT sort map keys. Migrating this package to json/v2 without opting into
+// json.Deterministic would silently reorder every score on every save. This
+// test is the tripwire for that.
+func TestSaveMapKeyOrderIsDeterministic(t *testing.T) {
+	t.Parallel()
+
+	cfg := quiz.DefaultConfig()
+	cfg.RoundMaxPoints = map[string]int{"8": 12, "3": 11, "6": 9, "1": 20, "2": 15}
+
+	q := quiz.Quiz{
+		Version: 1,
+		Created: time.Date(2026, 4, 14, 19, 0, 0, 0, time.UTC),
+		Config:  cfg,
+		Teams: []quiz.Team{{
+			ID:      "t_a",
+			Name:    "Alpha",
+			Players: "alice, bob",
+			Scores: map[string]float64{
+				"1": 4, "2": 2, "3": 6, "4": 8, "5": 5,
+				"6": 10, "7": 3, "8": 9,
+			},
+		}},
+	}
+
+	var first string
+
+	// Repeat enough times that randomised map iteration would show up.
+	for i := range 20 {
+		path := filepath.Join(t.TempDir(), "quiz.hujson")
+		require.NoError(t, store.Save(path, q))
+
+		raw, err := os.ReadFile(path)
+		require.NoError(t, err)
+
+		if i == 0 {
+			first = string(raw)
+
+			continue
+		}
+
+		require.Equal(t, first, string(raw),
+			"saved bytes must be identical across saves; map keys are no longer sorted")
+	}
+
+	// Spell out the property the byte-comparison relies on: keys ascend.
+	scoresAt := strings.Index(first, `"scores"`)
+	require.Positive(t, scoresAt, "expected a scores object in the saved file")
+
+	positions := make([]int, 0, 8)
+
+	for r := 1; r <= 8; r++ {
+		key := `"` + strconv.Itoa(r) + `"`
+
+		p := strings.Index(first[scoresAt:], key)
+		require.Positive(t, p, "round key %s missing from scores object", key)
+
+		positions = append(positions, p)
+	}
+
+	assert.IsIncreasing(t, positions, "score map keys must be written in sorted order")
 }
