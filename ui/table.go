@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/kradalby/qlimaster/quiz"
 	"github.com/kradalby/qlimaster/score"
 )

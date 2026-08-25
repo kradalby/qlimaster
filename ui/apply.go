@@ -5,9 +5,10 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"tailscale.com/util/set"
+
 	"github.com/kradalby/qlimaster/history"
 	"github.com/kradalby/qlimaster/quiz"
-	"tailscale.com/util/set"
 )
 
 // apply routes a quiz.Change through quiz.Apply, persists the result, and

@@ -7,11 +7,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kradalby/qlimaster/export"
-	"github.com/kradalby/qlimaster/quiz"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xuri/excelize/v2"
+
+	"github.com/kradalby/qlimaster/export"
+	"github.com/kradalby/qlimaster/quiz"
 )
 
 func TestHeader(t *testing.T) {

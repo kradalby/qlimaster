@@ -5,6 +5,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+
 	"github.com/kradalby/qlimaster/history"
 	"github.com/kradalby/qlimaster/quiz"
 	"github.com/kradalby/qlimaster/store"

@@ -14,8 +14,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/kradalby/qlimaster/quiz"
 	"github.com/tailscale/hujson"
+
+	"github.com/kradalby/qlimaster/quiz"
 )
 
 // ErrNotFound is returned by Load when the file does not exist.

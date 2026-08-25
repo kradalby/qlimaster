@@ -5,9 +5,10 @@ import (
 	"testing"
 	"testing/quick"
 
-	"github.com/kradalby/qlimaster/quiz"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kradalby/qlimaster/quiz"
 )
 
 func TestRank_BasicDescending(t *testing.T) {

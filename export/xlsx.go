@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/kradalby/qlimaster/quiz"
 	"github.com/xuri/excelize/v2"
+
+	"github.com/kradalby/qlimaster/quiz"
 )
 
 // XLSX writes the quiz as an XLSX file at path. The first row is the

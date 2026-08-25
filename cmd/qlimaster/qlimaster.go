@@ -17,13 +17,14 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/peterbourgon/ff/v4"
+	"github.com/peterbourgon/ff/v4/ffhelp"
+
 	"github.com/kradalby/qlimaster/export"
 	"github.com/kradalby/qlimaster/history"
 	"github.com/kradalby/qlimaster/quiz"
 	"github.com/kradalby/qlimaster/store"
 	"github.com/kradalby/qlimaster/ui"
-	"github.com/peterbourgon/ff/v4"
-	"github.com/peterbourgon/ff/v4/ffhelp"
 )
 
 // version is stamped at build time via -ldflags "-X main.version=...".

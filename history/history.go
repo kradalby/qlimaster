@@ -31,8 +31,9 @@ import (
 	"time"
 
 	"github.com/adrg/xdg"
-	"github.com/kradalby/qlimaster/quiz"
 	"github.com/tailscale/hujson"
+
+	"github.com/kradalby/qlimaster/quiz"
 )
 
 // Entry is a single team-name record in the history.
