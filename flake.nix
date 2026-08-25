@@ -11,15 +11,42 @@
   outputs = { self, nixpkgs, flake-utils, flake-checks }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs { inherit system; };
+        # Every Go tool in this repo must agree on one toolchain. Bare
+        # `pkgs.go` still resolves to 1.26 in unstable, so go_latest /
+        # buildGoLatestModule are named explicitly and the tools are rebuilt
+        # against them. goimports (gotools) ships wrapped with a `go` on
+        # PATH; that `go` must be at least the go.mod directive or
+        # GOTOOLCHAIN=auto tries to fetch a toolchain from inside the
+        # network-less treefmt sandbox.
+        goOverlay = _: prev: {
+          gotools = prev.gotools.override {
+            buildGoModule = prev.buildGoLatestModule;
+            go = prev.go_latest;
+          };
+          gotestsum = prev.gotestsum.override {
+            buildGoModule = prev.buildGoLatestModule;
+          };
+        };
+
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ goOverlay ];
+        };
         fc = flake-checks.lib;
 
-        # Require Go 1.26. Fail loudly if nixpkgs does not provide it.
-        go = pkgs.go_1_26 or (throw ''
-          qlimaster requires Go 1.26.
-          pkgs.go_1_26 is not available in the pinned nixpkgs.
-          Bump nixpkgs to a revision that includes Go 1.26 (nixos-unstable).
-        '');
+        # Track the newest Go nixpkgs ships rather than pinning a version, so
+        # this keeps working across bumps. Fail loudly if it ever regresses
+        # below what go.mod requires.
+        go =
+          let g = pkgs.go_latest or (throw "pkgs.go_latest is not available in the pinned nixpkgs.");
+          in
+          if builtins.compareVersions g.version "1.27.0" >= 0 then g
+          else
+            throw ''
+              qlimaster requires Go 1.27 or newer.
+              pkgs.go_latest is ${g.version}.
+              Bump nixpkgs to a revision that includes Go 1.27 (nixos-unstable).
+            '';
 
         version =
           if self ? rev then builtins.substring 0 7 self.rev
@@ -34,7 +61,7 @@
           # vendorHash is the sha256 of the fetched Go module cache. Bump
           # this after changing go.sum (`nix build` will print the new
           # hash in the error output).
-          vendorHash = "sha256-KL6vFhgw+Ub4EofNd6dGNRhUidmuKiz997yZ326Yq5s=";
+          vendorHash = "sha256-CQBKNvUBJS5aJ39ao5jMtmhiyRlxGZDYI0g4r6zKygs=";
           goPkg = go;
         };
       in
