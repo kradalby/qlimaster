@@ -7,7 +7,7 @@
 version: "2"
 
 run:
-  go: "1.26"
+  go: "1.27"
   timeout: 20m
   tests: true
 
@@ -21,7 +21,9 @@ linters:
   disable:
     - wsl                # superseded by wsl_v5
     - gochecknoglobals   # package-level lipgloss styles and error sentinels
-    - exhaustruct        # zero-value struct fields are fine
+    - exhaustruct        # zero-value struct fields are fine (deprecated name)
+    - exhaustruct_v5     # ...and its v5 replacement, same reason
+    - gomodguard         # superseded by gomodguard_v2
     - depguard           # meaningless without an allow-list; enable later
     - cyclop             # redundant with gocyclo + gocognit
     - ireturn            # we return interfaces from a few helpers (tea.Model)
@@ -78,7 +80,7 @@ linters:
       # Short footer-hint key/action labels ("Esc", "Enter", "next") repeat
       # across the hint tables by design; deduping them into constants hurts
       # readability more than it helps.
-      ignore-strings: "^(Esc|Enter|next|cancel)$"
+      ignore-string-values: "^(Esc|Enter|next|cancel)$"
 
   exclusions:
     rules:
