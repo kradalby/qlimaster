@@ -3,9 +3,10 @@ package fuzzy_test
 import (
 	"testing"
 
-	"github.com/kradalby/qlimaster/fuzzy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kradalby/qlimaster/fuzzy"
 )
 
 func TestDo_EmptyQueryPassesAll(t *testing.T) {

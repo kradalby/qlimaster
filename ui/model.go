@@ -9,10 +9,11 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	uv "github.com/charmbracelet/ultraviolet"
+	"tailscale.com/util/set"
+
 	"github.com/kradalby/qlimaster/history"
 	"github.com/kradalby/qlimaster/quiz"
 	"github.com/kradalby/qlimaster/store"
-	"tailscale.com/util/set"
 )
 
 // Mode is the UI's current top-level state. Each value dispatches key

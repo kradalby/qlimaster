@@ -3,9 +3,10 @@ package ui_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/kradalby/qlimaster/quiz"
 	"github.com/kradalby/qlimaster/ui"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestCompute_Breakpoints(t *testing.T) {

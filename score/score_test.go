@@ -3,9 +3,10 @@ package score_test
 import (
 	"testing"
 
-	"github.com/kradalby/qlimaster/score"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kradalby/qlimaster/score"
 )
 
 func TestParse_Valid(t *testing.T) {

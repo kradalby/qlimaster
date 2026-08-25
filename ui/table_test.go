@@ -5,10 +5,11 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/kradalby/qlimaster/quiz"
 	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kradalby/qlimaster/quiz"
 )
 
 // TestDecorateFocus_HighlightSurvivesRowBackground guards the edit-mode

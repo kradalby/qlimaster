@@ -3,8 +3,9 @@ package quiz_test
 import (
 	"testing"
 
-	"github.com/kradalby/qlimaster/quiz"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/kradalby/qlimaster/quiz"
 )
 
 func TestCheckpoint(t *testing.T) {

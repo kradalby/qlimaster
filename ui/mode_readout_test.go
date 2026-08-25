@@ -5,9 +5,10 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/kradalby/qlimaster/quiz"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kradalby/qlimaster/quiz"
 )
 
 // TestReadOut_EnterAndAdvance verifies 'R' enters the mode at the

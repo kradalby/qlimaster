@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/kradalby/qlimaster/quiz"
 )
 
