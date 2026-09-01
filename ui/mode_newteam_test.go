@@ -154,3 +154,47 @@ func TestNewTeam_EmptyNameErrors(t *testing.T) {
 	assert.Equal(t, ModeNewTeam, mm.mode)
 	assert.NotEmpty(t, mm.errMsg)
 }
+
+// TestNewTeam_TypedNameAdoptsHistoryCasing is a regression test for the
+// garbage-name bug: history is case-insensitive but styling-preserving,
+// so typing a known name in the wrong case must save the stored casing
+// instead of forking a second, differently-cased entry.
+func TestNewTeam_TypedNameAdoptsHistoryCasing(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	m, err := New(Config{
+		Path:        filepath.Join(dir, "quiz.hujson"),
+		QuizConfig:  quiz.DefaultConfig(),
+		QuizRoot:    dir,
+		HistoryPath: filepath.Join(dir, "history.hujson"),
+	})
+	require.NoError(t, err)
+
+	m.history.Teams = []history.Entry{
+		{Name: "Gin Team", LastSeen: "2026-07-21", TimesSeen: 2},
+	}
+
+	var model tea.Model = m
+
+	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	model, _ = model.Update(teaKey("a"))
+
+	for _, r := range "gin team" {
+		if r == ' ' {
+			model, _ = model.Update(tea.KeyPressMsg{Code: ' ', Text: " "})
+
+			continue
+		}
+
+		model, _ = model.Update(teaKey(string(r)))
+	}
+
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"}) // accept name
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"}) // accept players
+
+	mm, _ := model.(Model)
+	require.Len(t, mm.quiz.Teams, 1)
+	assert.Equal(t, "Gin Team", mm.quiz.Teams[0].Name)
+	assert.Len(t, mm.history.Teams, 1, "no case-variant entry added to history")
+}

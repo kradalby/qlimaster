@@ -119,6 +119,17 @@ func (m Model) newTeamAcceptName(suggestions []history.Entry) Model {
 		return m
 	}
 
+	// A typed name differing only in case from a known team adopts the
+	// stored casing, so history stays case-insensitive without losing the
+	// team's own styling.
+	for _, e := range m.history.Teams {
+		if strings.EqualFold(e.Name, name) {
+			name = e.Name
+
+			break
+		}
+	}
+
 	m.newTeam.name = name
 	m.newTeam.step = newTeamStepPlayers
 	m.errMsg = ""
