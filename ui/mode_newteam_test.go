@@ -198,3 +198,82 @@ func TestNewTeam_TypedNameAdoptsHistoryCasing(t *testing.T) {
 	assert.Equal(t, "Gin Team", mm.quiz.Teams[0].Name)
 	assert.Len(t, mm.history.Teams, 1, "no case-variant entry added to history")
 }
+
+// TestNewTeam_EnterTakesTopSuggestion reproduces the real add-team flow:
+// type a short query, see the match, press Enter. The listed match must
+// win, or the query itself is saved as a team and pollutes history.
+func TestNewTeam_EnterTakesTopSuggestion(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	m, err := New(Config{
+		Path:        filepath.Join(dir, "quiz.hujson"),
+		QuizConfig:  quiz.DefaultConfig(),
+		QuizRoot:    dir,
+		HistoryPath: filepath.Join(dir, "history.hujson"),
+	})
+	require.NoError(t, err)
+
+	m.history.Teams = []history.Entry{
+		{Name: "Geen Idee", LastSeen: "2026-06-09", TimesSeen: 1},
+		{Name: "Gin Team", LastSeen: "2026-07-21", TimesSeen: 2},
+		{Name: "Good Question", LastSeen: "2026-07-21", TimesSeen: 2},
+	}
+
+	var model tea.Model = m
+
+	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	model, _ = model.Update(teaKey("a"))
+
+	for _, r := range "geen" {
+		model, _ = model.Update(teaKey(string(r)))
+	}
+
+	mm, _ := model.(Model)
+	require.Equal(t, "Geen Idee", mm.newTeamSuggestions()[0].Name, "top match")
+
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"}) // accept name
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"}) // accept players
+
+	mm, _ = model.(Model)
+	require.Len(t, mm.quiz.Teams, 1)
+	assert.Equal(t, "Geen Idee", mm.quiz.Teams[0].Name)
+	assert.Len(t, mm.history.Teams, 3, "no new history entry for the query")
+}
+
+// TestNewTeam_UpFromTopKeepsTypedName verifies a genuinely new name that
+// happens to fuzzy-match history can still be added: arrowing up off the
+// top row deselects and Enter then saves the query verbatim.
+func TestNewTeam_UpFromTopKeepsTypedName(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	m, err := New(Config{
+		Path:        filepath.Join(dir, "quiz.hujson"),
+		QuizConfig:  quiz.DefaultConfig(),
+		QuizRoot:    dir,
+		HistoryPath: filepath.Join(dir, "history.hujson"),
+	})
+	require.NoError(t, err)
+
+	m.history.Teams = []history.Entry{
+		{Name: "Geen Idee", LastSeen: "2026-06-09", TimesSeen: 1},
+	}
+
+	var model tea.Model = m
+
+	model, _ = model.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	model, _ = model.Update(teaKey("a"))
+
+	for _, r := range "geen" {
+		model, _ = model.Update(teaKey(string(r)))
+	}
+
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Text: "\n"})
+
+	mm, _ := model.(Model)
+	require.Len(t, mm.quiz.Teams, 1)
+	assert.Equal(t, "geen", mm.quiz.Teams[0].Name)
+}

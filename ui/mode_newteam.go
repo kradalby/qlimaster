@@ -41,7 +41,8 @@ func (m Model) startNewTeam() Model {
 }
 
 // noSuggestion marks that no suggestion is selected; the typed text is used
-// verbatim. Arrowing into the list selects a real index, which then wins.
+// verbatim. Typing highlights the top match, so Enter takes what the list
+// shows; arrowing up off the top row returns here to keep a new name.
 const noSuggestion = -1
 
 // handleNewTeamKey dispatches keys while ModeNewTeam is active.
@@ -85,7 +86,7 @@ func (m Model) newTeamNameKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 	case k == keyBackspace:
 		if m.newTeam.name != "" {
 			m.newTeam.name = m.newTeam.name[:len(m.newTeam.name)-1]
-			m.newTeam.suggestIdx = noSuggestion
+			m.newTeam.suggestIdx = 0
 		}
 
 		return m, nil
@@ -93,16 +94,15 @@ func (m Model) newTeamNameKey(k, text string, km KeyMap) (tea.Model, tea.Cmd) {
 
 	if text := sanitizeText(text); text != "" {
 		m.newTeam.name += text
-		m.newTeam.suggestIdx = noSuggestion
+		m.newTeam.suggestIdx = 0
 	}
 
 	return m, nil
 }
 
 // newTeamAcceptName confirms the name field and advances to the players
-// step. A suggestion the user arrowed onto wins outright; otherwise the typed
-// text is used, falling back to the top suggestion only when nothing was
-// typed.
+// step. The highlighted suggestion wins; the typed text is used only when
+// the user arrowed off the list or nothing matched.
 func (m Model) newTeamAcceptName(suggestions []history.Entry) Model {
 	name := strings.TrimSpace(m.newTeam.name)
 
@@ -244,7 +244,7 @@ func (m Model) renderNewTeamName() string {
 		lines = append(lines, "", styles.Error.Render("! err: "+m.errMsg))
 	}
 
-	lines = append(lines, "", "Enter accept | Esc cancel")
+	lines = append(lines, "", "Enter accept | Up/Down select (up off list keeps typed name) | Esc cancel")
 
 	return styles.OverlayBorder.Padding(1, 2).Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
 }
