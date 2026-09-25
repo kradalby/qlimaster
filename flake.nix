@@ -73,7 +73,7 @@
           # vendorHash is the sha256 of the fetched Go module cache. Bump
           # this after changing go.sum (`nix build` will print the new
           # hash in the error output).
-          vendorHash = "sha256-CQBKNvUBJS5aJ39ao5jMtmhiyRlxGZDYI0g4r6zKygs=";
+          vendorHash = "sha256-IC5JPKYTgRB0QHPWYUYMUo0b0nKY5aoBsqqucTi2HyE=";
           goPkg = go;
         };
       in
