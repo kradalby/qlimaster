@@ -3,11 +3,11 @@ module github.com/kradalby/qlimaster
 go 1.27.0
 
 require (
-	charm.land/bubbletea/v2 v2.0.9
+	charm.land/bubbletea/v2 v2.0.10
 	github.com/adrg/xdg v0.5.3
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/charmbracelet/ultraviolet v0.0.0-20260812204455-68fa937c71be
-	github.com/junegunn/fzf v0.74.3
+	github.com/charmbracelet/ultraviolet v0.0.0-20260922123528-4e49372c11f9
+	github.com/junegunn/fzf v0.74.4
 	github.com/muesli/termenv v0.16.0
 	github.com/peterbourgon/ff/v4 v4.0.0-beta.1
 	github.com/stretchr/testify v1.12.1
@@ -31,14 +31,14 @@ require (
 	github.com/junegunn/go-shellwords v0.0.0-20250127100254-2aa3b3277741 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
-	github.com/mattn/go-runewidth v0.0.28 // indirect
+	github.com/mattn/go-runewidth v0.0.30 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/richardlehane/mscfb v1.0.8 // indirect
 	github.com/richardlehane/msoleps v1.0.6 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/tiendc/go-deepcopy v1.7.2 // indirect
-	github.com/xo/terminfo v1.0.0 // indirect
-	github.com/xuri/efp v0.0.1 // indirect
+	github.com/xo/terminfo v1.2.0 // indirect
+	github.com/xuri/efp v0.0.2 // indirect
 	github.com/xuri/nfp v0.0.2-0.20250530014748-2ddeb826f9a9 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
