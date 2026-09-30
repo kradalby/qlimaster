@@ -153,7 +153,7 @@ type Config struct {
 	HistoryPath string
 	// QuizRoot is the starting directory used for the upward quiz-root
 	// search and for live sibling-folder scans. Defaults to
-	// filepath.Dir(Config.Path).
+	// history.ScanRoot of the folder holding Path.
 	QuizRoot string
 	// QuizConfig is the quiz structure to create when Path does not yet
 	// exist. Ignored when Path exists and is parseable.
@@ -175,7 +175,7 @@ func New(cfg Config) (Model, error) {
 	}
 
 	if cfg.QuizRoot == "" {
-		cfg.QuizRoot = filepath.Dir(cfg.Path)
+		cfg.QuizRoot = history.ScanRoot(filepath.Dir(cfg.Path))
 	}
 
 	q, err := loadOrCreate(cfg.Path, cfg.QuizConfig)

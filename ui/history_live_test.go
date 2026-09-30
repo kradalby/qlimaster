@@ -207,3 +207,17 @@ func TestHistory_TimesSeenStableAcrossSessions(t *testing.T) {
 		assert.Equal(t, 1, e.TimesSeen, e.Name)
 	}
 }
+
+// TestNew_DefaultQuizRootScansSiblings confirms that without an explicit
+// QuizRoot the scan covers the quiz folder's siblings, as --quiz-root
+// documents.
+func TestNew_DefaultQuizRootScansSiblings(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	saveQuizIn(t, filepath.Join(root, "2026-01-01"), "Alpha")
+
+	m, err := New(Config{Path: filepath.Join(root, "2026-02-01", "quiz.hujson")})
+	require.NoError(t, err)
+	assert.Contains(t, m.history.Names(), "Alpha")
+}
