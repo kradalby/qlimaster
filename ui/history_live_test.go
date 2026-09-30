@@ -11,6 +11,7 @@ import (
 
 	"github.com/kradalby/qlimaster/history"
 	"github.com/kradalby/qlimaster/quiz"
+	"github.com/kradalby/qlimaster/store"
 )
 
 // TestApply_LiveHistoryUpdate adds a new team and asserts that a history
@@ -152,5 +153,57 @@ func drainBatch(cmd tea.Cmd) {
 				_ = sub()
 			}
 		}
+	}
+}
+
+// saveQuizIn writes a quiz holding the named teams to dir/quiz.hujson.
+func saveQuizIn(t *testing.T, dir string, names ...string) {
+	t.Helper()
+
+	q := quiz.New(quiz.DefaultConfig())
+
+	for _, n := range names {
+		var err error
+
+		q, _, err = quiz.Apply(q, quiz.ChangeAddTeam{Name: n})
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, store.Save(filepath.Join(dir, "quiz.hujson"), q))
+}
+
+// TestHistory_TimesSeenStableAcrossSessions runs successive sessions in
+// sibling quiz folders and expects every team, each played once, to show
+// once rather than growing with each session.
+func TestHistory_TimesSeenStableAcrossSessions(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	historyPath := filepath.Join(root, "history.hujson")
+	saveQuizIn(t, filepath.Join(root, "2026-01-01"), "Alpha")
+
+	session := func(day string) Model {
+		t.Helper()
+
+		m, err := New(Config{
+			Path:        filepath.Join(root, day, "quiz.hujson"),
+			HistoryPath: historyPath,
+			QuizRoot:    root,
+		})
+		require.NoError(t, err)
+
+		return m
+	}
+
+	for _, day := range []string{"2026-02-01", "2026-02-08", "2026-02-15"} {
+		m, _ := session(day).apply(quiz.ChangeAddTeam{Name: "Team " + day})
+		require.NoError(t, m.Flush())
+	}
+
+	m := session("2026-03-01")
+	require.Len(t, m.history.Teams, 4)
+
+	for _, e := range m.history.Teams {
+		assert.Equal(t, 1, e.TimesSeen, e.Name)
 	}
 }

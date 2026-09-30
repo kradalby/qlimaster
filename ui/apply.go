@@ -71,8 +71,8 @@ func (m Model) apply(c quiz.Change) (Model, tea.Cmd) {
 }
 
 // maybeRecordNewNames checks the current quiz for any team name not yet
-// tracked in this session's sessionRecordedNames set. For each fresh
-// name it updates the in-memory history and schedules an async save.
+// tracked in this session's sessionRecordedNames set. Fresh names are
+// recorded in the persisted history, which alone is saved.
 // The session set prevents double-bumping TimesSeen when the same team
 // is mutated repeatedly (score edits, rename, etc.) within one run.
 func (m Model) maybeRecordNewNames() (Model, tea.Cmd) {
@@ -106,8 +106,9 @@ func (m Model) maybeRecordNewNames() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.history = history.RecordNames(m.history, fresh, time.Now())
+	m.persistedHistory = history.RecordNames(m.persistedHistory, fresh, time.Now())
+	m.history = history.Union(m.persistedHistory, m.scannedHistory)
 	m.historySeq++
 
-	return m, historySaveCmd(m.historySaver, m.historySeq, m.history)
+	return m, historySaveCmd(m.historySaver, m.historySeq, m.persistedHistory)
 }

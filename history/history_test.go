@@ -71,6 +71,27 @@ func TestMerge_Dedup(t *testing.T) {
 	assert.Equal(t, "Alpha", m.Teams[0].Name)
 }
 
+// TestUnion_OverlapCountsOnce confirms histories describing the same
+// quizzes, like the persisted file and a folder scan, do not add up.
+func TestUnion_OverlapCountsOnce(t *testing.T) {
+	t.Parallel()
+
+	persisted := history.History{Teams: []history.Entry{
+		{Name: "Alpha", LastSeen: "2026-04-14", TimesSeen: 3},
+		{Name: "Beta", LastSeen: "2025-11-01", TimesSeen: 1},
+	}}
+	scanned := history.History{Teams: []history.Entry{
+		{Name: "alpha", LastSeen: "2026-04-21", TimesSeen: 2},
+		{Name: "Gamma", LastSeen: "2026-01-01", TimesSeen: 1},
+	}}
+
+	assert.Equal(t, []history.Entry{
+		{Name: "alpha", LastSeen: "2026-04-21", TimesSeen: 3},
+		{Name: "Gamma", LastSeen: "2026-01-01", TimesSeen: 1},
+		{Name: "Beta", LastSeen: "2025-11-01", TimesSeen: 1},
+	}, history.Union(persisted, scanned).Teams)
+}
+
 func TestRecordNames_DedupesAndBumpsOnce(t *testing.T) {
 	t.Parallel()
 

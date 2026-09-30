@@ -72,9 +72,14 @@ type Model struct {
 	// width and height come from tea.WindowSizeMsg.
 	width, height int
 
-	quiz    quiz.Quiz
-	path    string // absolute path to quiz.hujson
-	history history.History
+	quiz quiz.Quiz
+	path string // absolute path to quiz.hujson
+	// history is what the add-team flow suggests from: the union of
+	// persistedHistory (the history file plus names recorded this
+	// session, the only part ever saved) and scannedHistory (sibling
+	// quiz folders).
+	history                          history.History
+	persistedHistory, scannedHistory history.History
 	// historyPath is the resolved absolute path to history.hujson; used
 	// for live history updates on team-name mutations.
 	historyPath string
@@ -188,11 +193,7 @@ func New(cfg Config) (Model, error) {
 		historyPath = hp
 	}
 
-	hist, err := loadHistory(historyPath, cfg.QuizRoot)
-	if err != nil {
-		// History is best-effort; we still start the UI.
-		hist = history.History{Version: 1}
-	}
+	persisted, scanned := loadHistory(historyPath, cfg.QuizRoot)
 
 	// Seed the session-recorded set with every team already present
 	// in the loaded quiz, so reopening a quiz file does not re-bump
@@ -208,7 +209,9 @@ func New(cfg Config) (Model, error) {
 	return Model{
 		quiz:                 q,
 		path:                 cfg.Path,
-		history:              hist,
+		history:              history.Union(persisted, scanned),
+		persistedHistory:     persisted,
+		scannedHistory:       scanned,
 		historyPath:          historyPath,
 		sessionRecordedNames: recorded,
 		quizSaver: newSaver(func(q quiz.Quiz) error {
@@ -242,30 +245,21 @@ func loadOrCreate(path string, cfg quiz.Config) (quiz.Quiz, error) {
 	return fresh, nil
 }
 
-// loadHistory combines the persisted history file with a live scan of
-// sibling quiz folders under quizRoot. An empty historyPath is
-// resolved via history.ResolvePath.
-func loadHistory(historyPath, quizRoot string) (history.History, error) {
-	if historyPath == "" {
-		hp, err := history.ResolvePath(quizRoot)
-		if err != nil {
-			return history.History{}, fmt.Errorf("resolve history path: %w", err)
-		}
-
-		historyPath = hp
-	}
-
+// loadHistory reads the history file and scans sibling quiz folders under
+// quizRoot, returning them in that order. Both are best-effort: a source
+// that fails to load is empty.
+func loadHistory(historyPath, quizRoot string) (history.History, history.History) {
 	persisted, err := history.Load(historyPath)
 	if err != nil {
-		return history.History{}, fmt.Errorf("load history: %w", err)
+		persisted = history.History{Version: 1}
 	}
 
 	scanned, err := history.Scan(quizRoot)
 	if err != nil {
-		return persisted, nil //nolint:nilerr // scan failure is non-fatal
+		scanned = history.History{Version: 1}
 	}
 
-	return history.Merge(persisted, scanned), nil
+	return persisted, scanned
 }
 
 // computeLastEntered returns the highest round number for which any team
