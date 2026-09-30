@@ -23,12 +23,11 @@ type savedMsg struct {
 // out after a short delay rather than lingering forever.
 type clearStatusMsg struct{}
 
-// saveCmd returns a tea.Cmd that persists q to path and emits savedMsg.
-func saveCmd(path string, q quiz.Quiz) tea.Cmd {
+// saveCmd returns a tea.Cmd that persists snapshot seq of the quiz and
+// emits savedMsg.
+func saveCmd(s *saver[quiz.Quiz], seq uint64, q quiz.Quiz) tea.Cmd {
 	return func() tea.Msg {
-		err := store.Save(path, q)
-
-		return savedMsg{When: time.Now(), Err: err}
+		return savedMsg{When: time.Now(), Err: s.save(seq, q)}
 	}
 }
 
@@ -47,12 +46,11 @@ type historySavedMsg struct {
 	Err  error
 }
 
-// historySaveCmd persists the team-name history file asynchronously.
-func historySaveCmd(path string, h history.History) tea.Cmd {
+// historySaveCmd persists snapshot seq of the team-name history
+// asynchronously.
+func historySaveCmd(s *saver[history.History], seq uint64, h history.History) tea.Cmd {
 	return func() tea.Msg {
-		err := history.Save(path, h)
-
-		return historySavedMsg{When: time.Now(), Err: err}
+		return historySavedMsg{When: time.Now(), Err: s.save(seq, h)}
 	}
 }
 

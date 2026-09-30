@@ -27,7 +27,9 @@ func (m Model) apply(c quiz.Change) (Model, tea.Cmd) {
 	m.quiz = newQuiz
 	m.lastEntered = computeLastEntered(newQuiz)
 
-	cmds := []tea.Cmd{saveCmd(m.path, newQuiz)}
+	m.quizSeq++
+
+	cmds := []tea.Cmd{saveCmd(m.quizSaver, m.quizSeq, newQuiz)}
 	if res.Mutated {
 		cmds = append(cmds, clearStatusCmd(1200*time.Millisecond))
 	}
@@ -105,6 +107,7 @@ func (m Model) maybeRecordNewNames() (Model, tea.Cmd) {
 	}
 
 	m.history = history.RecordNames(m.history, fresh, time.Now())
+	m.historySeq++
 
-	return m, historySaveCmd(m.historyPath, m.history)
+	return m, historySaveCmd(m.historySaver, m.historySeq, m.history)
 }
