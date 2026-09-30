@@ -162,6 +162,26 @@ func TestApply_PerfectRoundDetection(t *testing.T) {
 	_ = q
 }
 
+// TestApply_PerfectRoundUsesRoundCap confirms the perfect-round flash fires
+// at each round's own cap, the same threshold the table highlights.
+func TestApply_PerfectRoundUsesRoundCap(t *testing.T) {
+	t.Parallel()
+
+	cfg := quiz.Config{Rounds: 2, QuestionsPerRound: 10, RoundMaxPoints: map[string]int{"1": 20, "2": 5}}
+	q, _, err := quiz.Apply(quiz.New(cfg), quiz.ChangeAddTeam{Name: "a"})
+	require.NoError(t, err)
+
+	id := q.Teams[0].ID
+
+	_, res, err := quiz.Apply(q, quiz.ChangeSetScore{TeamID: id, Round: 1, Score: 10})
+	require.NoError(t, err)
+	assert.Empty(t, res.NewPerfectRounds, "10 of 20 is not perfect")
+
+	_, res, err = quiz.Apply(q, quiz.ChangeSetScore{TeamID: id, Round: 2, Score: 5})
+	require.NoError(t, err)
+	assert.Equal(t, []quiz.PerfectRef{{TeamID: id, Round: 2}}, res.NewPerfectRounds, "5 of 5 is perfect")
+}
+
 func TestApply_DeleteTeam(t *testing.T) {
 	t.Parallel()
 

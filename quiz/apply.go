@@ -266,7 +266,7 @@ func applySetConfig(q *Quiz, c ChangeSetConfig) error {
 		}
 	}
 
-	q.Config = *c.Config.Clone()
+	q.Config = c.Config.Normalize()
 
 	return nil
 }

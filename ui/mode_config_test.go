@@ -267,31 +267,36 @@ func TestConfig_RoundsDecreaseDropsOverrides(t *testing.T) {
 	assert.Empty(t, mm.quiz.Config.Checkpoints, "checkpoints beyond new round count dropped")
 }
 
-// TestConfig_LegacyMaxPointsDropped confirms the legacy global MaxPoints is
-// dropped: the grid baselines at questions per round, and only the edited
-// round gets an explicit override.
-func TestConfig_LegacyMaxPointsDropped(t *testing.T) {
+// TestConfig_LegacyMaxPointsKeepsCaps confirms a legacy quiz-wide MaxPoints
+// shows as each round's real cap and survives unrelated edits.
+func TestConfig_LegacyMaxPointsKeepsCaps(t *testing.T) {
 	t.Parallel()
 
-	model := openConfig(t, quiz.Config{Rounds: 3, QuestionsPerRound: 10, MaxPoints: 20})
+	model := openConfig(t, quiz.Config{Rounds: 3, QuestionsPerRound: 10, MaxPoints: 20, Checkpoints: []int{3}})
 
 	mm, _ := model.(Model)
-	// Before any edit the grid shows questions per round, not the old 20.
-	assert.Equal(t, "10", mm.configCellValue(configCell{Kind: cfgRoundMax, Round: 1}))
+	assert.Equal(t, "20", mm.configCellValue(configCell{Kind: cfgRoundMax, Round: 1}))
 
-	// Down 3 to R1, Right to R2, edit R2 -> 15.
+	// Down 2 to Checkpoints, set "2".
 	model, _ = model.Update(kDown)
 	model, _ = model.Update(kDown)
+	model = typeStr(model, "2")
+	model, _ = model.Update(kEnter)
+
+	// Down 1 to R1, Right to R2, set 15.
 	model, _ = model.Update(kDown)
 	model, _ = model.Update(kRight)
-	model = typeStr(model, "15") // type-to-edit, no Enter needed first
+	model = typeStr(model, "15")
 	model, _ = model.Update(kEnter)
 
 	mm, _ = model.(Model)
-	assert.Equal(t, 0, mm.quiz.Config.MaxPoints, "legacy MaxPoints dropped")
-	assert.Equal(t, 15, mm.quiz.Config.RoundMaxPoints["2"])
-	_, ok := mm.quiz.Config.RoundMaxPoints["1"]
-	assert.False(t, ok, "untouched rounds keep the questions-per-round baseline")
+	require.Empty(t, mm.errMsg)
+	assert.Equal(t, []int{2}, mm.quiz.Config.Checkpoints)
+
+	cfg := mm.quiz.Config
+	assert.InDelta(t, 20.0, cfg.MaxScoreForRound(1), 1e-9)
+	assert.InDelta(t, 15.0, cfg.MaxScoreForRound(2), 1e-9)
+	assert.InDelta(t, 20.0, cfg.MaxScoreForRound(3), 1e-9)
 }
 
 // TestConfig_TypeToEdit confirms typing a digit on a focused cell starts the

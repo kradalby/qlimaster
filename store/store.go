@@ -23,7 +23,8 @@ import (
 var ErrNotFound = errors.New("quiz file not found")
 
 // Load reads a quiz.hujson file, tolerating JSON comments and trailing
-// commas via hujson.Standardize.
+// commas via hujson.Standardize. The config is normalised so files with a
+// legacy max_points load as per-round caps.
 func Load(path string) (quiz.Quiz, error) {
 	raw, err := os.ReadFile(path) //nolint:gosec // path is user-controlled by design
 	if err != nil {
@@ -43,6 +44,8 @@ func Load(path string) (quiz.Quiz, error) {
 	if err := json.Unmarshal(standardized, &q); err != nil {
 		return quiz.Quiz{}, fmt.Errorf("unmarshal %s: %w", path, err)
 	}
+
+	q.Config = q.Config.Normalize()
 
 	return q, nil
 }

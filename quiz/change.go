@@ -11,8 +11,8 @@ type Change interface {
 }
 
 // ChangeSetScore records a score for one team in one round. Score must be
-// a value accepted by score.Parse against the current
-// Config.QuestionsPerRound; Apply re-validates for safety.
+// a value accepted by score.Parse against the round's
+// Config.MaxScoreForRound; Apply re-validates for safety.
 type ChangeSetScore struct {
 	TeamID string
 	Round  int

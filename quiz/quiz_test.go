@@ -76,25 +76,59 @@ func TestConfig_ValidateRoundMaxPoints(t *testing.T) {
 	}
 }
 
-func TestConfig_MaxScore(t *testing.T) {
-	t.Parallel()
-
-	// Explicit MaxPoints wins.
-	assert.InDelta(t, 20.0, quiz.Config{QuestionsPerRound: 10, MaxPoints: 20}.MaxScore(), 1e-9)
-	// Zero MaxPoints falls back to QuestionsPerRound (legacy files).
-	assert.InDelta(t, 10.0, quiz.Config{QuestionsPerRound: 10, MaxPoints: 0}.MaxScore(), 1e-9)
-}
-
 func TestConfig_MaxScoreForRound(t *testing.T) {
 	t.Parallel()
 
-	cfg := quiz.Config{QuestionsPerRound: 10, MaxPoints: 20, RoundMaxPoints: map[string]int{"3": 11}}
+	cfg := quiz.Config{QuestionsPerRound: 10, RoundMaxPoints: map[string]int{"3": 11}}
 	// Round with an explicit override returns it.
 	assert.InDelta(t, 11.0, cfg.MaxScoreForRound(3), 1e-9)
-	// Round without an override falls back to the quiz-wide MaxScore.
-	assert.InDelta(t, 20.0, cfg.MaxScoreForRound(1), 1e-9)
-	// A nil override map falls back to MaxScore for every round.
+	// Round without an override falls back to questions per round.
+	assert.InDelta(t, 10.0, cfg.MaxScoreForRound(1), 1e-9)
+	// Legacy quiz-wide MaxPoints still caps rounds without an override.
 	assert.InDelta(t, 20.0, quiz.Config{QuestionsPerRound: 10, MaxPoints: 20}.MaxScoreForRound(3), 1e-9)
+}
+
+// TestNew_FoldsLegacyMaxPoints confirms a quiz-wide MaxPoints becomes explicit
+// per-round caps, the only shape the config form reads and writes, without
+// changing any round's cap.
+func TestNew_FoldsLegacyMaxPoints(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		cfg  quiz.Config
+		want map[string]int
+	}{
+		{
+			name: "differs from questions",
+			cfg:  quiz.Config{Rounds: 3, QuestionsPerRound: 10, MaxPoints: 20, RoundMaxPoints: map[string]int{"2": 5}},
+			want: map[string]int{"1": 20, "2": 5, "3": 20},
+		},
+		{
+			name: "equals questions",
+			cfg:  quiz.Config{Rounds: 3, QuestionsPerRound: 10, MaxPoints: 10},
+			want: nil,
+		},
+		{
+			name: "unset",
+			cfg:  quiz.Config{Rounds: 3, QuestionsPerRound: 10, RoundMaxPoints: map[string]int{"2": 5}},
+			want: map[string]int{"2": 5},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := quiz.New(tc.cfg).Config
+			assert.Zero(t, got.MaxPoints)
+			assert.Equal(t, tc.want, got.RoundMaxPoints)
+
+			for r := 1; r <= tc.cfg.Rounds; r++ {
+				assert.InDelta(t, tc.cfg.MaxScoreForRound(r), got.MaxScoreForRound(r), 1e-9, "round %d", r)
+			}
+		})
+	}
 }
 
 func TestNew(t *testing.T) {
