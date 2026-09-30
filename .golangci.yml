@@ -76,6 +76,10 @@ linters:
       # The project's convention is an explicit default case; treat it as
       # covering the remaining enum values.
       default-signifies-exhaustive: true
+    recvcheck:
+      # tailscale cloner emits pointer-receiver Clone on value-receiver types.
+      exclusions:
+        - "*.Clone"
     goconst:
       # Short footer-hint key/action labels ("Esc", "Enter", "next") repeat
       # across the hint tables by design; deduping them into constants hurts

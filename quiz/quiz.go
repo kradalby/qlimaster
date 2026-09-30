@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+//go:generate go tool cloner -copyright=false -type=Quiz,Config,Team
+
 // Config describes the shape of the quiz (number of rounds, questions per
 // round, and which rounds should show a cumulative-total checkpoint
 // column).
