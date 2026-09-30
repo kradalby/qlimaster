@@ -67,7 +67,7 @@ func newRootCommand() *ff.Command {
 	var (
 		rounds      = rootFS.IntLong("rounds", 8, "number of rounds")
 		questions   = rootFS.IntLong("questions", 10, "questions per round")
-		points      = rootFS.IntLong("points", 20, "maximum points per round")
+		points      = rootFS.IntLong("points", 0, "maximum points per round, 0 = questions per round")
 		checkpoints = rootFS.StringLong("checkpoints", "4,8",
 			"comma-separated round numbers for cumulative-total columns")
 		quizRoot = rootFS.StringLong("quiz-root", "",
