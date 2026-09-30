@@ -213,6 +213,42 @@ func TestApply_SetConfig(t *testing.T) {
 	assert.False(t, ok)
 }
 
+// TestApply_SetConfigOwnsItsConfig guards against the stored config sharing
+// the caller's map and slice, which would let later caller edits rewrite
+// the quiz outside Apply.
+func TestApply_SetConfigOwnsItsConfig(t *testing.T) {
+	t.Parallel()
+
+	cfg := quiz.DefaultConfig()
+	cfg.RoundMaxPoints = map[string]int{"1": 5}
+
+	q, _, err := quiz.Apply(withTeams(t, "a"), quiz.ChangeSetConfig{Config: cfg})
+	require.NoError(t, err)
+
+	cfg.RoundMaxPoints["1"] = 7
+	cfg.Checkpoints[0] = 3
+
+	assert.Equal(t, map[string]int{"1": 5}, q.Config.RoundMaxPoints)
+	assert.Equal(t, []int{4, 8}, q.Config.Checkpoints)
+}
+
+// TestApply_MutatedTracksEveryField confirms a change touching only one
+// config field is reported, and re-applying it is a no-op.
+func TestApply_MutatedTracksEveryField(t *testing.T) {
+	t.Parallel()
+
+	cfg := quiz.DefaultConfig()
+	cfg.RoundMaxPoints = map[string]int{"2": 12}
+
+	q, res, err := quiz.Apply(withTeams(t, "a"), quiz.ChangeSetConfig{Config: cfg})
+	require.NoError(t, err)
+	assert.True(t, res.Mutated)
+
+	_, res, err = quiz.Apply(q, quiz.ChangeSetConfig{Config: cfg})
+	require.NoError(t, err)
+	assert.False(t, res.Mutated)
+}
+
 func TestApply_SetConfigInvalid(t *testing.T) {
 	t.Parallel()
 

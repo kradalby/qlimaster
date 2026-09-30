@@ -2,7 +2,6 @@ package ui
 
 import (
 	"errors"
-	"maps"
 	"strconv"
 	"strings"
 
@@ -222,9 +221,7 @@ func (m Model) configWithEdit() (quiz.Config, error) {
 // MaxPoints dropped, so the per-round grid always baselines at questions per
 // round. Rounds that need a different cap carry an explicit override.
 func (m Model) configBase() quiz.Config {
-	cfg := m.quiz.Config
-	cfg.Checkpoints = append([]int(nil), m.quiz.Config.Checkpoints...)
-	cfg.RoundMaxPoints = maps.Clone(m.quiz.Config.RoundMaxPoints)
+	cfg := *m.quiz.Config.Clone()
 	cfg.MaxPoints = 0
 
 	return cfg

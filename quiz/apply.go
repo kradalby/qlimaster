@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"maps"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -56,22 +56,21 @@ var (
 // The UI wraps this function in ui.Model.apply, which is the only place
 // where the result is persisted to disk and animations are triggered.
 func Apply(q Quiz, c Change) (Quiz, Result, error) {
-	before := deepCopy(q)
-	after := deepCopy(q)
+	after := *q.Clone()
 
 	if err := applyChange(&after, c); err != nil {
 		return q, Result{}, err
 	}
 
-	beforePerfect := perfectRounds(before)
+	beforePerfect := perfectRounds(q)
 	afterPerfect := perfectRounds(after)
 	newPerfect := newPerfectRounds(beforePerfect, afterPerfect)
 
-	roundDone := roundJustCompleted(before, after)
+	roundDone := roundJustCompleted(q, after)
 	reRanked := shouldRerank(c, roundDone)
 
 	res := Result{
-		Mutated:            !equalQuiz(before, after),
+		Mutated:            !reflect.DeepEqual(q, after),
 		RoundJustCompleted: roundDone,
 		NewPerfectRounds:   newPerfect,
 		ReRanked:           reRanked,
@@ -267,85 +266,9 @@ func applySetConfig(q *Quiz, c ChangeSetConfig) error {
 		}
 	}
 
-	q.Config = c.Config
+	q.Config = *c.Config.Clone()
 
 	return nil
-}
-
-// deepCopy returns a value-equal copy of q with independent maps and slices
-// so the input Quiz to Apply is never mutated.
-func deepCopy(q Quiz) Quiz {
-	out := q
-	out.Config.Checkpoints = append([]int(nil), q.Config.Checkpoints...)
-	out.Config.RoundMaxPoints = maps.Clone(q.Config.RoundMaxPoints)
-
-	out.Teams = make([]Team, len(q.Teams))
-	for i, t := range q.Teams {
-		copied := t
-		copied.Scores = make(map[string]float64, len(t.Scores))
-		maps.Copy(copied.Scores, t.Scores)
-		out.Teams[i] = copied
-	}
-
-	return out
-}
-
-// equalQuiz reports whether two quizzes are value-equal. Used by Apply to
-// determine whether anything actually changed.
-func equalQuiz(a, b Quiz) bool {
-	if a.Version != b.Version || !a.Created.Equal(b.Created) {
-		return false
-	}
-
-	if a.Config.Rounds != b.Config.Rounds ||
-		a.Config.QuestionsPerRound != b.Config.QuestionsPerRound ||
-		a.Config.MaxPoints != b.Config.MaxPoints {
-		return false
-	}
-
-	if !maps.Equal(a.Config.RoundMaxPoints, b.Config.RoundMaxPoints) {
-		return false
-	}
-
-	if len(a.Config.Checkpoints) != len(b.Config.Checkpoints) {
-		return false
-	}
-
-	for i, cp := range a.Config.Checkpoints {
-		if cp != b.Config.Checkpoints[i] {
-			return false
-		}
-	}
-
-	if len(a.Teams) != len(b.Teams) {
-		return false
-	}
-
-	for i := range a.Teams {
-		if !equalTeam(a.Teams[i], b.Teams[i]) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func equalTeam(a, b Team) bool {
-	if a.ID != b.ID || a.Name != b.Name || a.Players != b.Players {
-		return false
-	}
-
-	if len(a.Scores) != len(b.Scores) {
-		return false
-	}
-
-	for k, v := range a.Scores {
-		if bv, ok := b.Scores[k]; !ok || bv != v {
-			return false
-		}
-	}
-
-	return true
 }
 
 // newTeamID returns a short, URL-safe, random ID. Team IDs are never shown
