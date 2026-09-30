@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/kradalby/qlimaster/quiz"
+	"github.com/kradalby/qlimaster/score"
 )
 
 // Config-cell validation errors.
@@ -217,14 +218,9 @@ func (m Model) configWithEdit() (quiz.Config, error) {
 	return cfg, nil
 }
 
-// configBase returns a deep copy of the current config with the legacy global
-// MaxPoints dropped, so the per-round grid always baselines at questions per
-// round. Rounds that need a different cap carry an explicit override.
+// configBase returns a copy of the current config for an edit to modify.
 func (m Model) configBase() quiz.Config {
-	cfg := *m.quiz.Config.Clone()
-	cfg.MaxPoints = 0
-
-	return cfg
+	return *m.quiz.Config.Clone()
 }
 
 // setRoundMax records a per-round override, or drops it when the value equals
@@ -384,11 +380,7 @@ func (m Model) configCellValue(cell configCell) string {
 	case cfgCheckpoints:
 		return joinInts(cfg.Checkpoints)
 	case cfgRoundMax:
-		if pts, ok := cfg.RoundMaxPoints[strconv.Itoa(cell.Round)]; ok {
-			return strconv.Itoa(pts)
-		}
-
-		return strconv.Itoa(cfg.QuestionsPerRound)
+		return score.Format(cfg.MaxScoreForRound(cell.Round))
 	default:
 		return ""
 	}

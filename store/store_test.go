@@ -86,6 +86,30 @@ func TestLoadWithComments(t *testing.T) {
 	assert.Equal(t, "Alpha", q.Teams[0].Name)
 }
 
+// TestLoadFoldsLegacyMaxPoints confirms files written with a quiz-wide
+// max_points load as per-round caps, so the config form sees real values.
+func TestLoadFoldsLegacyMaxPoints(t *testing.T) {
+	t.Parallel()
+
+	raw := []byte(`{
+	  "version": 1,
+	  "config": {
+	    "rounds": 3,
+	    "questions_per_round": 10,
+	    "max_points": 20,
+	    "round_max_points": { "2": 5 },
+	  },
+	  "teams": [],
+	}`)
+	path := filepath.Join(t.TempDir(), "quiz.hujson")
+	require.NoError(t, os.WriteFile(path, raw, 0o600))
+
+	q, err := store.Load(path)
+	require.NoError(t, err)
+	assert.Zero(t, q.Config.MaxPoints)
+	assert.Equal(t, map[string]int{"1": 20, "2": 5, "3": 20}, q.Config.RoundMaxPoints)
+}
+
 func TestSavePreservesTopComment(t *testing.T) {
 	t.Parallel()
 

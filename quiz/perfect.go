@@ -1,9 +1,8 @@
 package quiz
 
 // PerfectRef identifies a particular (team, round) cell that achieved a
-// perfect round score. A score qualifies as perfect when it is greater than
-// or equal to the configured questions-per-round value (it may be higher in
-// quizzes that award bonus points).
+// perfect round score: at or above that round's cap
+// ([Config.MaxScoreForRound]).
 type PerfectRef struct {
 	TeamID string
 	Round  int
@@ -12,12 +11,11 @@ type PerfectRef struct {
 // perfectRounds returns all (team, round) pairs in the quiz that are at or
 // above the perfect-score threshold.
 func perfectRounds(q Quiz) []PerfectRef {
-	threshold := q.Config.MaxScore()
 	out := make([]PerfectRef, 0)
 
 	for _, team := range q.Teams {
 		for r := 1; r <= q.Config.Rounds; r++ {
-			if v, ok := team.Score(r); ok && v >= threshold {
+			if v, ok := team.Score(r); ok && v >= q.Config.MaxScoreForRound(r) {
 				out = append(out, PerfectRef{TeamID: team.ID, Round: r})
 			}
 		}

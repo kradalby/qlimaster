@@ -23,18 +23,22 @@ type Config struct {
 	Rounds            int            `hujson:"rounds"              json:"rounds"`
 	QuestionsPerRound int            `hujson:"questions_per_round" json:"questions_per_round"`
 	RoundMaxPoints    map[string]int `hujson:"round_max_points"    json:"round_max_points"`
-	// MaxPoints is the highest score a team may be awarded in one round,
-	// decoupled from QuestionsPerRound so a round can be worth more points
-	// than it has questions (e.g. 10 questions at 2 points each). A zero
-	// value means "fall back to QuestionsPerRound" so quiz files written
-	// before this field existed keep their original cap.
+	// MaxPoints is the legacy quiz-wide round cap. [Config.Normalize] folds
+	// it into RoundMaxPoints, which the config form edits against a
+	// QuestionsPerRound default; kept so older files still decode.
 	MaxPoints   int   `hujson:"max_points"  json:"max_points"`
 	Checkpoints []int `hujson:"checkpoints" json:"checkpoints"`
 }
 
-// MaxScore returns the effective per-round score cap: MaxPoints when set,
-// otherwise QuestionsPerRound for backward compatibility with older files.
-func (c Config) MaxScore() float64 {
+// MaxScoreForRound is the score cap for a round: its RoundMaxPoints
+// override, else the legacy MaxPoints, else QuestionsPerRound. Every cap
+// check goes through here so validation, highlighting and the perfect-round
+// flash agree.
+func (c Config) MaxScoreForRound(round int) float64 {
+	if pts, ok := c.RoundMaxPoints[roundKey(round)]; ok && pts > 0 {
+		return float64(pts)
+	}
+
 	if c.MaxPoints > 0 {
 		return float64(c.MaxPoints)
 	}
@@ -42,14 +46,29 @@ func (c Config) MaxScore() float64 {
 	return float64(c.QuestionsPerRound)
 }
 
-// MaxScoreForRound returns a round-specific score cap when configured,
-// otherwise it falls back to the quiz-wide MaxScore.
-func (c Config) MaxScoreForRound(round int) float64 {
-	if pts, ok := c.RoundMaxPoints[strconv.Itoa(round)]; ok && pts > 0 {
-		return float64(pts)
+// Normalize returns a copy of c with the legacy MaxPoints folded into
+// RoundMaxPoints, leaving every round's cap unchanged. The config form only
+// shows per-round overrides, so a leftover MaxPoints would be invisible
+// there and silently dropped by the next edit.
+func (c Config) Normalize() Config {
+	out := *c.Clone()
+	out.MaxPoints = 0
+
+	if c.MaxPoints <= 0 || c.MaxPoints == c.QuestionsPerRound {
+		return out
 	}
 
-	return c.MaxScore()
+	if out.RoundMaxPoints == nil {
+		out.RoundMaxPoints = make(map[string]int, c.Rounds)
+	}
+
+	for r := 1; r <= c.Rounds; r++ {
+		if key := roundKey(r); out.RoundMaxPoints[key] <= 0 {
+			out.RoundMaxPoints[key] = c.MaxPoints
+		}
+	}
+
+	return out
 }
 
 // DefaultConfig returns the standard Grandcafe de Burcht setup: 8 rounds of
@@ -74,8 +93,8 @@ func (c Config) Validate() error {
 	if c.QuestionsPerRound < 1 || c.QuestionsPerRound > 100 {
 		return fmt.Errorf("%w: questions_per_round %d not in [1, 100]", ErrInvalidConfig, c.QuestionsPerRound)
 	}
-	// MaxPoints == 0 means "use QuestionsPerRound" (legacy files); any
-	// explicit value must be positive and not absurdly large.
+	// MaxPoints == 0 means "use QuestionsPerRound"; any explicit value must
+	// be positive and not absurdly large.
 	if c.MaxPoints < 0 || c.MaxPoints > 1000 {
 		return fmt.Errorf("%w: max_points %d not in [0, 1000]", ErrInvalidConfig, c.MaxPoints)
 	}
@@ -142,12 +161,13 @@ type Quiz struct {
 	Teams   []Team    `hujson:"teams"   json:"teams"`
 }
 
-// New returns a fresh quiz with the supplied config and no teams.
+// New returns a fresh quiz with the supplied config, normalised, and no
+// teams.
 func New(cfg Config) Quiz {
 	return Quiz{
 		Version: 1,
 		Created: time.Now().UTC(),
-		Config:  cfg,
+		Config:  cfg.Normalize(),
 		Teams:   []Team{},
 	}
 }
