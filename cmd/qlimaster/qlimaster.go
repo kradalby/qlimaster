@@ -71,7 +71,7 @@ func newRootCommand() *ff.Command {
 		checkpoints = rootFS.StringLong("checkpoints", "4,8",
 			"comma-separated round numbers for cumulative-total columns")
 		quizRoot = rootFS.StringLong("quiz-root", "",
-			"root folder to scan for sibling quizzes (default: parent of CWD)")
+			"root folder to scan for sibling quizzes (default: nearest quiz root, else parent of CWD)")
 	)
 
 	root := &ff.Command{
@@ -191,7 +191,7 @@ var errUnknownFormat = errors.New("unknown export format")
 func newHistoryRebuildCommand() *ff.Command {
 	fs := ff.NewFlagSet("rebuild")
 	root := fs.StringLong("quiz-root", "",
-		"root folder to scan (default: parent of CWD)")
+		"root folder to scan (default: nearest quiz root, else parent of CWD)")
 
 	return &ff.Command{
 		Name:      "rebuild",
@@ -206,15 +206,7 @@ func newHistoryRebuildCommand() *ff.Command {
 
 			scanRoot := *root
 			if scanRoot == "" {
-				// Walk upwards from CWD looking for an ancestor that
-				// looks like a quiz-root (has a history.hujson or a
-				// dated subfolder). Fall back to the parent of CWD
-				// when nothing qualifies.
-				if found, ok := history.FindQuizRoot(cwd); ok {
-					scanRoot = found
-				} else {
-					scanRoot = filepath.Dir(cwd)
-				}
+				scanRoot = history.ScanRoot(cwd)
 			}
 
 			scanned, err := history.Scan(scanRoot)

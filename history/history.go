@@ -131,6 +131,21 @@ func FindQuizRoot(start string) (string, bool) {
 	}
 }
 
+// ScanRoot returns the folder whose subfolders are the quizzes related to
+// dir: the nearest quiz-root at or above dir, else dir's parent, as dir is
+// usually one quiz folder among its siblings.
+func ScanRoot(dir string) string {
+	if root, ok := FindQuizRoot(dir); ok {
+		return root
+	}
+
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
+
+	return filepath.Dir(dir)
+}
+
 // ResolvePath returns the best path for the history file. It walks
 // upwards from start (via [FindQuizRoot]) looking for an ancestor that
 // looks like a quiz-root; if found, the history lives at
