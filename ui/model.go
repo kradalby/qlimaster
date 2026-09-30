@@ -84,6 +84,12 @@ type Model struct {
 	// the name is later edited.
 	sessionRecordedNames set.Set[string]
 
+	// Async saves go through the savers, which skip snapshots older than
+	// what is on disk; the seqs number the snapshots handed to them.
+	quizSaver           *saver[quiz.Quiz]
+	historySaver        *saver[history.History]
+	quizSeq, historySeq uint64
+
 	mode Mode
 
 	// rowCursor is the currently selected row in Normal and Edit modes.
@@ -205,8 +211,14 @@ func New(cfg Config) (Model, error) {
 		history:              hist,
 		historyPath:          historyPath,
 		sessionRecordedNames: recorded,
-		mode:                 ModeNormal,
-		lastEntered:          computeLastEntered(q),
+		quizSaver: newSaver(func(q quiz.Quiz) error {
+			return store.Save(cfg.Path, q)
+		}),
+		historySaver: newSaver(func(h history.History) error {
+			return history.Save(historyPath, h)
+		}),
+		mode:        ModeNormal,
+		lastEntered: computeLastEntered(q),
 	}, nil
 }
 

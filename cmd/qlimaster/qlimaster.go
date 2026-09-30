@@ -278,12 +278,19 @@ func runTUI(opts runOpts) error {
 		return fmt.Errorf("init ui: %w", err)
 	}
 
-	program := tea.NewProgram(model)
-	if _, err := program.Run(); err != nil {
-		return fmt.Errorf("run program: %w", err)
+	final, err := tea.NewProgram(model).Run()
+	if err != nil {
+		err = fmt.Errorf("run program: %w", err)
 	}
 
-	return nil
+	// Saves run as commands, which bubbletea abandons on quit.
+	if m, ok := final.(ui.Model); ok {
+		if ferr := m.Flush(); ferr != nil {
+			err = errors.Join(err, fmt.Errorf("save on exit: %w", ferr))
+		}
+	}
+
+	return err
 }
 
 func parseCheckpoints(s string) ([]int, error) {
