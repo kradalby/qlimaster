@@ -90,20 +90,11 @@ func TestNewTeam_NameWithSpacesPreserved(t *testing.T) {
 func TestNewTeam_SelectsSuggestion(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
-	m, err := New(Config{
-		Path:        filepath.Join(dir, "quiz.hujson"),
-		QuizConfig:  quiz.DefaultConfig(),
-		QuizRoot:    dir,
-		HistoryPath: filepath.Join(dir, "history.hujson"),
-	})
-	require.NoError(t, err)
-
-	m.history.Teams = []history.Entry{
+	m := newTeamModel(t, []history.Entry{
 		{Name: "Alpha", LastSeen: "2026-01-01", TimesSeen: 1},
 		{Name: "Alligators", LastSeen: "2026-01-01", TimesSeen: 1},
 		{Name: "Alpacas", LastSeen: "2026-01-01", TimesSeen: 1},
-	}
+	})
 
 	var model tea.Model = m
 
@@ -162,18 +153,9 @@ func TestNewTeam_EmptyNameErrors(t *testing.T) {
 func TestNewTeam_TypedNameAdoptsHistoryCasing(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
-	m, err := New(Config{
-		Path:        filepath.Join(dir, "quiz.hujson"),
-		QuizConfig:  quiz.DefaultConfig(),
-		QuizRoot:    dir,
-		HistoryPath: filepath.Join(dir, "history.hujson"),
-	})
-	require.NoError(t, err)
-
-	m.history.Teams = []history.Entry{
+	m := newTeamModel(t, []history.Entry{
 		{Name: "Gin Team", LastSeen: "2026-07-21", TimesSeen: 2},
-	}
+	})
 
 	var model tea.Model = m
 
@@ -205,20 +187,11 @@ func TestNewTeam_TypedNameAdoptsHistoryCasing(t *testing.T) {
 func TestNewTeam_EnterTakesTopSuggestion(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
-	m, err := New(Config{
-		Path:        filepath.Join(dir, "quiz.hujson"),
-		QuizConfig:  quiz.DefaultConfig(),
-		QuizRoot:    dir,
-		HistoryPath: filepath.Join(dir, "history.hujson"),
-	})
-	require.NoError(t, err)
-
-	m.history.Teams = []history.Entry{
+	m := newTeamModel(t, []history.Entry{
 		{Name: "Geen Idee", LastSeen: "2026-06-09", TimesSeen: 1},
 		{Name: "Gin Team", LastSeen: "2026-07-21", TimesSeen: 2},
 		{Name: "Good Question", LastSeen: "2026-07-21", TimesSeen: 2},
-	}
+	})
 
 	var model tea.Model = m
 
@@ -247,18 +220,9 @@ func TestNewTeam_EnterTakesTopSuggestion(t *testing.T) {
 func TestNewTeam_UpFromTopKeepsTypedName(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
-	m, err := New(Config{
-		Path:        filepath.Join(dir, "quiz.hujson"),
-		QuizConfig:  quiz.DefaultConfig(),
-		QuizRoot:    dir,
-		HistoryPath: filepath.Join(dir, "history.hujson"),
-	})
-	require.NoError(t, err)
-
-	m.history.Teams = []history.Entry{
+	m := newTeamModel(t, []history.Entry{
 		{Name: "Geen Idee", LastSeen: "2026-06-09", TimesSeen: 1},
-	}
+	})
 
 	var model tea.Model = m
 
@@ -276,4 +240,23 @@ func TestNewTeam_UpFromTopKeepsTypedName(t *testing.T) {
 	mm, _ := model.(Model)
 	require.Len(t, mm.quiz.Teams, 1)
 	assert.Equal(t, "geen", mm.quiz.Teams[0].Name)
+}
+
+// newTeamModel builds a Model whose history file holds seed.
+func newTeamModel(t *testing.T, seed []history.Entry) Model {
+	t.Helper()
+
+	dir := t.TempDir()
+	historyPath := filepath.Join(dir, "history.hujson")
+	require.NoError(t, history.Save(historyPath, history.History{Version: 1, Teams: seed}))
+
+	m, err := New(Config{
+		Path:        filepath.Join(dir, "quiz.hujson"),
+		QuizConfig:  quiz.DefaultConfig(),
+		QuizRoot:    dir,
+		HistoryPath: historyPath,
+	})
+	require.NoError(t, err)
+
+	return m
 }

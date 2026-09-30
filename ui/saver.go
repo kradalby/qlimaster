@@ -43,6 +43,6 @@ func (s *saver[T]) save(seq uint64, v T) error {
 func (m Model) Flush() error {
 	return errors.Join(
 		m.quizSaver.save(m.quizSeq, m.quiz),
-		m.historySaver.save(m.historySeq, m.history),
+		m.historySaver.save(m.historySeq, m.persistedHistory),
 	)
 }

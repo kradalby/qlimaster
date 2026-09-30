@@ -15,6 +15,9 @@
 //  2. A live scan of sibling quiz folders under the same root, which
 //     is resilient to a missing or stale history file.
 //
+// The two overlap, so callers show their [Union] and write back only the
+// persistent one; saving the union would recount every scanned quiz.
+//
 // The public API exposes a merged, deduplicated list sorted by most
 // recently seen (ties broken by times-seen then by name).
 package history
@@ -218,10 +221,23 @@ func Save(path string, h History) error {
 	return nil
 }
 
-// Merge combines multiple History values into one, deduplicating by
+// Merge combines histories of distinct quizzes into one, deduplicating by
 // case-insensitive name. The name cased in the most-recent entry is kept;
 // LastSeen is the max date; TimesSeen is the sum across inputs.
 func Merge(sources ...History) History {
+	return combine(sources, func(a, b int) int { return a + b })
+}
+
+// Union is [Merge] for histories that may describe the same quizzes, such
+// as the persisted file and a folder scan: TimesSeen is the max, so a quiz
+// both have seen counts once.
+func Union(sources ...History) History {
+	return combine(sources, func(a, b int) int { return max(a, b) })
+}
+
+// combine deduplicates entries by case-insensitive name, folding TimesSeen
+// with times.
+func combine(sources []History, times func(a, b int) int) History {
 	type acc struct {
 		name      string
 		lastSeen  string
@@ -245,7 +261,7 @@ func Merge(sources ...History) History {
 				continue
 			}
 
-			a.timesSeen += e.TimesSeen
+			a.timesSeen = times(a.timesSeen, e.TimesSeen)
 			if e.LastSeen > a.lastSeen {
 				a.lastSeen = e.LastSeen
 				a.name = e.Name
