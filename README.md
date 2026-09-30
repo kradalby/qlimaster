@@ -59,7 +59,9 @@ qlimaster version
 - **`quiz.hujson`** — the quiz state, in the current directory, saved on every change.
 - **`quiz.csv` / `quiz.xlsx`** — exports, next to the quiz file.
 - **`history.hujson`** — the team cache (names seen across quizzes, for fuzzy
-  lookup). Located by walking up from the quiz directory to the nearest quiz
+  lookup). The TUI saves only team names entered in it; suggestions also draw
+  on a live scan of sibling quiz folders, which the TUI does not save
+  (`history rebuild` overwrites the file with that scan). Located by walking up from the quiz directory to the nearest quiz
   root (a folder holding a `history.hujson` or dated quiz subfolders); if none
   is found it falls back to `$XDG_CONFIG_HOME/qlimaster/history.hujson`.
 
