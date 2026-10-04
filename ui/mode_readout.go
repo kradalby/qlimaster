@@ -90,8 +90,8 @@ func (m Model) renderReadOut() string {
 		m.width, pal.BgHeader,
 	))
 
-	tieCount := readOutTieCount(m.quiz, team)
-	card := readOutCard(m.quiz, team, position, tieCount, isWinner)
+	tied := readOutTiedTeams(worstFirst, team)
+	card := readOutCard(m.quiz, team, position, tied, isWinner, m.width, m.height-6)
 	cardPlaced := placeCenter(card, m.width, m.height-6)
 
 	hints := []footerHint{
@@ -118,7 +118,7 @@ func statusForReadOut(m Model) string {
 }
 
 // readOutOrder returns the teams sorted worst-to-best (ascending by
-// total, alphabetical ascending for ties).
+// total, alphabetical descending for ties).
 func readOutOrder(q quiz.Quiz) []quiz.Team {
 	best := quiz.SortByRanking(q) // best-first
 
@@ -130,40 +130,45 @@ func readOutOrder(q quiz.Quiz) []quiz.Team {
 	return out
 }
 
-// readOutTieCount returns how many teams (including t itself) share t's
-// total score. A return of 1 means no tie; >1 means that many teams are
-// level. The exact == comparison matches quiz.Rank's tie grouping.
-func readOutTieCount(q quiz.Quiz, t quiz.Team) int {
-	count := 0
+// readOutTiedTeams returns the teams sharing t's total, in readout order.
+// The exact == comparison matches quiz.Rank's tie grouping.
+func readOutTiedTeams(order []quiz.Team, t quiz.Team) []quiz.Team {
+	var tied []quiz.Team
+
 	total := t.Total()
 
-	for _, other := range q.Teams {
+	for _, other := range order {
 		if other.Total() == total {
-			count++
+			tied = append(tied, other)
 		}
 	}
 
-	return count
+	return tied
 }
 
-// readOutCard builds the centered card for one team.
-func readOutCard(q quiz.Quiz, t quiz.Team, position, tieCount int, isWinner bool) string {
+// readOutCard shows every tied team, with the selected team's stats below.
+func readOutCard(q quiz.Quiz, t quiz.Team, position int, tied []quiz.Team, isWinner bool, width, height int) string {
 	titleStyle := styles.OverlayTitle
 	if isWinner {
 		titleStyle = styles.Gold.Bold(true)
 	}
 
-	// Only surface the count when teams are actually tied; "(1)" on every
-	// card is just noise.
-	tie := ""
-	if tieCount > 1 {
-		tie = " (" + strconv.Itoa(tieCount) + ")"
+	shared := len(tied) > 1
+
+	label := "Position " + strconv.Itoa(position)
+	if isWinner {
+		label = "POSITION " + strconv.Itoa(position)
 	}
 
-	posLine := titleStyle.Render("Position " + strconv.Itoa(position) + tie)
-	if isWinner {
-		posLine = titleStyle.Render("★ POSITION " + strconv.Itoa(position) + tie + " ★")
+	if shared {
+		label = "Shared position " + strconv.Itoa(position) + " · " + strconv.Itoa(len(tied)) + " teams"
 	}
+
+	if isWinner {
+		label = "★ " + label + " ★"
+	}
+
+	posLine := titleStyle.Render(label)
 
 	nameStyle := lipgloss.NewStyle().Bold(true).Foreground(pal.PinkHot)
 	if isWinner {
@@ -190,25 +195,80 @@ func readOutCard(q quiz.Quiz, t quiz.Team, position, tieCount int, isWinner bool
 		"",
 		roundsBlock,
 	}
+
+	if shared {
+		roster, selected := renderReadOutRoster(tied, t.ID, nameStyle)
+		lines = []string{
+			"", posLine, totalLine + " each", "", roster, "",
+			strings.Repeat("─", 48), "",
+			"Stats for " + nameLine + " · " + strconv.Itoa(selected) + " / " + strconv.Itoa(len(tied)),
+			"", roundsBlock,
+		}
+	}
+
 	if checkpointsLine != "" {
 		lines = append(lines, "", checkpointsLine)
 	}
 
 	if isWinner {
+		winner := "W  I  N  N  E  R"
+		if shared {
+			winner += "  S"
+		}
+
 		lines = append(lines, "",
-			lipgloss.NewStyle().Bold(true).Foreground(pal.Gold).Render("W  I  N  N  E  R"))
+			lipgloss.NewStyle().Bold(true).Foreground(pal.Gold).Render(winner))
 	}
 
 	lines = append(lines, "")
-
-	body := lipgloss.JoinVertical(lipgloss.Center, lines...)
 
 	border := styles.OverlayBorder
 	if isWinner {
 		border = styles.OverlayBorder.BorderForeground(pal.Gold)
 	}
 
-	return border.Padding(1, 4).Render(body)
+	return fitReadOutCard(lines, border, shared, width, height)
+}
+
+func fitReadOutCard(lines []string, border lipgloss.Style, shared bool, width, height int) string {
+	// Bound long names to the terminal and remove spacer lines when a
+	// shared roster would otherwise push the stats below the viewport.
+	bodyStyle := lipgloss.NewStyle()
+	if shared {
+		bodyStyle = bodyStyle.Width(max(1, min(78, width-10))).Align(lipgloss.Center)
+	}
+
+	card := border.Padding(1, 4).Render(bodyStyle.Render(lipgloss.JoinVertical(lipgloss.Center, lines...)))
+	if shared && lipgloss.Height(card) > height {
+		compact := make([]string, 0, len(lines))
+		for _, line := range lines {
+			if line != "" {
+				compact = append(compact, line)
+			}
+		}
+
+		card = border.Padding(0, 4).Render(bodyStyle.Render(lipgloss.JoinVertical(lipgloss.Center, compact...)))
+	}
+
+	return card
+}
+
+// renderReadOutRoster uses team IDs so duplicate names still select one row.
+func renderReadOutRoster(tied []quiz.Team, selectedID string, nameStyle lipgloss.Style) (string, int) {
+	rows := make([]string, 0, len(tied))
+	selected := 0
+
+	for i, team := range tied {
+		row := "  " + team.Name
+		if team.ID == selectedID {
+			selected = i + 1
+			row = nameStyle.Background(pal.BgSelect).Render("▶ " + team.Name)
+		}
+
+		rows = append(rows, row)
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, rows...), selected
 }
 
 // renderRoundsTwoColumn renders the per-round scores in two side-by-side
